@@ -1,0 +1,6 @@
+# Ignore following directories
+**/data
+**/mypython
+**/plots
+**/tables
+**/.DS_Store
