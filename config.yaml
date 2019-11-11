@@ -1,12 +1,14 @@
-platform: ILLUMINA
+platform: IONTORRENT
 
-exp: exp2_MHC
+exp: exp5_MHC
 
 parent_dir: /home/tuba/herpov/tcr-pmhc-sc-project
 
 raw_file:
-  MHC : MHC-2_S1_L001_R1_001.fastq.gz
-  CD8 : CD8-2_S2_L001_R1_001.fastq.gz
-  EXTZ : -2_S1_L001_R1_001.fastq.gz
-  EXT : -2_S1_L001_R1_001.fastq
+  #MHC : MHC-2_S1_L001_R1_001.fastq.gz
+  #CD8 : CD8-2_S2_L001_R1_001.fastq.gz
+  EXTZ : S1_L001_R1_001.fastq.gz
+  EXT : S1_L001_R1_001.fastq
 
+mapping:
+  kma_args : -1t1
