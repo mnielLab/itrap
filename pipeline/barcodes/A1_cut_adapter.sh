@@ -1,4 +1,7 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/#solution-positional-parameters
 
 # Helle Povlsen
 # 02.06.19
@@ -15,13 +18,13 @@
 #            |||||||||||||||||||||||
 #            RevComp of this is the 3' adapter to remove
 
-PLATFORM="ILLUMINA" #"IONTORRENT"
-EXP="exp2_MHC_"$PLATFORM # Variable
+IN=${1:-}
+OUT=${2:-} #$PARENT_DIR/data/$EXP/processed/cut_adapter
+PLATFORM=${3:-} #"ILLUMINA" #"IONTORRENT"
 
-PARENT_DIR="/home/tuba/herpov/tcr-pmhc-sc-project"
-OUT=$PARENT_DIR/data/$EXP/processed/cut_adapter
+OUT_DIR=$(dirname $OUT)
 
-mkdir -p $OUT
+mkdir -p $OUT_DIR
 
 
 # This script uses cutadapt to trim adaptor sequences, since trimaglore does not trim adaptors from 5', but only from 3'
@@ -47,41 +50,28 @@ TRIMGALORE="/home/tuba/shared/bin/trim_galore"
 #                        Write reads that are too long (according to length
 #                        specified by -M) to FILE. Default: discard reads
 
-    
 
-
-#FQ1=$OUT/${PLATFORM}_no_5p_adapter.fastq 
-#FQ2=$OUT/${PLATFORM}_S1_L001_R1_001.fastq
-#FQ=$OUT/${PLATFORM}_S1_L001_R1_001.fastq
-
-for f in $PARENT_DIR/data/$EXP/raw/*fastq* ; do
+#$PARENT_DIR/data/$EXP/raw/
+for f in $IN/*fastq* ; do
 	
 # parentheses and the ampersand put this in a subshell, meaning that we can run all instances of longranger in parallel...!)
 
-(	#$CUTADAPT --front $ADAPTER_5p --error-rate 0.2 -o $FQ1 $f > $OUT/$PLATFORM.cutadapt_5p.log
-	#$CUTADAPT -a $ADAPTER_3p -o $FQ2 $FQ1 > $OUT/$PLATFORM.cutadapt_3p.log
-
-	#CUTADAPT -a ${ADAPTER_5p}...${ADAPTER_3p} -o FQ2 $f > $OUT/$PLATFORM.cutadapt.log
-
-	#---- Remove adapter sequences
+(	#---- Remove adapter sequences
 
 	if [ "$PLATFORM" = "IONTORRENT" ]; then
-		FQ=$OUT/${PLATFORM}_S1_L001_R1_001.fastq
+		#FQ=$OUT_DIR/${PLATFORM}_$FILE_EXT #S1_L001_R1_001.fastq
 
 		ADAPTER_5p="CACGACGCTCTTCCGATCT"
 		ADAPTER_3p="ATCACCGACTGCCCATAGAGAGG"
 
-		CUTADAPT -a ${ADAPTER_5p}...${ADAPTER_3p} -o FQ $f > $OUT/$PLATFORM.cutadapt.log
+		$CUTADAPT -a ${ADAPTER_5p}...${ADAPTER_3p} -o $OUT $f > $OUT_DIR/$PLATFORM.cutadapt.log
 	else
 		# OBS! Instead of creating two files al the way down, merge the two together after annotating the read IDs with MHC or CD8.
-		#FILE=$(basename "${f}")
-		#BARCODE_TYPE=${FILE/_*/}
-		#echo $BARCODE_TYPE
-		FQ=$OUT/${PLATFORM}_S1_L001_R1_001.fastq #-${BARCODE_TYPE}
+		#FQ=$OUT_DIR/${PLATFORM}_$FILE_EXT #S1_L001_R1_001.fastq #-${BARCODE_TYPE}
 
 		ADAPTER_3p="TGGAATTCTCGGGTGCCAAGGAACTCCAGTCACATCACGATCTCGTATGCCGTCTTCTGCTTG"
 
-		$CUTADAPT -a $ADAPTER_3p --error-rate 0.2 -o $FQ $f > $OUT/$PLATFORM.cutadapt.log
+		$CUTADAPT -a $ADAPTER_3p --error-rate 0.2 -o $OUT $f > $OUT_DIR/$PLATFORM.cutadapt.log
 		#$TRIMGALORE --adapter $ADAPTER --quality 20 --length 60 --fastqc_args "--outdir $OUT/FastQC" --output_dir $OUT --path_to_cutadapt $CUTADAPT $f  > $OUT/$PLATFORM.trimgalore.log 2>&1
 	fi
 ) &
