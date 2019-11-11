@@ -4,5 +4,6 @@
 **/plots
 **/tables
 **/.DS_Store
-**/.ipynb_checkpoints
+*-checkpoint.ipynb
 **/.snakemake
+*test*e
