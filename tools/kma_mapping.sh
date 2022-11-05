@@ -7,7 +7,7 @@ KMA=/home/tuba-nobackup/shared/src/kma/kma
 
 KMA_DIR=$(echo $4 | rev | cut -d"/" -f3- | rev) 
 
-mkdir -p $KMA_DIR/output
+#mkdir -p $KMA_DIR/output
 
 $KMA index -i $BARCODE_TEMPLATES -o $KMA_DIR/templates
 $KMA -i $READS -o $KMA_DIR/output/mapping -t_db $KMA_DIR/templates $ARGS
