@@ -9,20 +9,24 @@
 #EXP="exp2_MHC_"$PLATFORM # Variable
 
 #PARENT_DIR="/home/tuba/herpov/tcr-pmhc-sc-project"
-IN=$1 #$PARENT_DIR/data/$EXP/
-OUT=$2 #$PARENT_DIR/data/$EXP/fastqc
-IN_FIL=$3
-OUT_FIL=$4
+#IN=$1 #$PARENT_DIR/data/$EXP/
+#OUT=$2 #$PARENT_DIR/data/$EXP/fastqc
+#IN_FIL1=$1
+#IN_FIL2=$2
+#IN_FIL3=$3
+OUT_FIL=$1
 
-if [ -f "$IN_FIL" ]; then
-    echo "$IN_FIL exist"
-else 
-    echo "$IN_FIL does not exist"
-fi
+OUT=$(dirname $OUT_FIL)
 
-mkdir -p $OUT
+#if [ -f "$IN_FIL2" ]; then
+#    echo "$IN_FIL2 exist"
+#else 
+#    echo "$IN_FIL2 does not exist"
+#fi
 
-for file in `find $IN -type f \( -iname "*.fastq" -o -iname "*.fq" \)`; do
+#mkdir -p $OUT
+
+for file in "$@"; do #`find $IN -type f \( -iname "*.fastq" -o -iname "*.fq" \)`; do
 	
 	FILENAME=$(basename ${file%.*})
 	echo $FILENAME
@@ -33,8 +37,6 @@ for file in `find $IN -type f \( -iname "*.fastq" -o -iname "*.fq" \)`; do
 	# Overrepresented sequences can be found in $OUT/fastqc_data08
 
 done
-
-wait
 
 if [ -f "$OUT_FIL" ]; then
     echo "$OUT_FIL exist"

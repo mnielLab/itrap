@@ -1,0 +1,65 @@
+exp: exp9.2
+index : SI-TT-A1 #exp2:SI-GA-A2/SI-GA-E6, exp3:SI-GA-A2 #exp6:SI-GA-A4 #exp7: SI-GA-A5 #netTCR1: SI-TT-A3 #netTCR2: SI-TT-A4 #exp9:SI-TT-A2 #exp10:SI-TT-A1
+
+demux: True #Is data demultiplexed or not?
+
+platform: IONTORRENT
+
+#parent_dir: /home/tuba/herpov/tcr-pmhc-sc-project
+
+raw_file:
+  EXTZ : S1_L001_R1_001.fastq.gz
+  EXT : S1_L001_R1_001.fastq
+
+#cellranger: /home/tuba-nobackup/shared/cellranger/cellranger-6.1.1/cellranger
+vjd_ref: /services/tools/cellranger/refdata/refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0 #/home/tuba-nobackup/shared/cellranger/reference/refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0
+gex_ref: /services/tools/cellranger/refdata/refdata-gex-GRCh38_and_mm10-2020-A
+
+mapping: KMA
+mapping_args: -1t1
+
+barcode_system: AKB #COM
+
+plot_type:
+  - peptide_per_clonotype_by_gem_size
+  - peptides_per_gem
+  - multiple_peptides_per_gem_w_filtering
+  - mhc_read_count_per_clonotype
+  - tcr_read_count_per_clonotype
+
+umi_delta:
+  - umi_delta0
+  - umi_delta1
+  - umi_delta2
+
+filtration:
+  - no_filtration
+  - exclude_single-chain_TCRs
+  - exclude_ambiguous_and_single-chain_TCRs
+
+version: 1
+
+bc_thresh:
+  - b1
+  - b2
+  - b3
+  - b4
+  - b5
+
+tcr_thresh:
+  - t1
+  - t2
+  - t4
+  - t5
+  - t6
+  - t8
+  - t10
+
+ecs_bool:
+  - False
+
+ess_bool:
+  - False
+
+#https://stackoverflow.com/questions/64271392/overwrite-nested-config-options-on-command-line
+

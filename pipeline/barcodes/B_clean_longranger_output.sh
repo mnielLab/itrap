@@ -4,9 +4,6 @@
 # 02.06.19
 
 PLATFORM=$5 #"ILLUMINA"
-#EXP="exp2_MHC_"$PLATFORM # Variable
-
-#PARENT_DIR="/home/tuba/herpov/tcr-pmhc-sc-project"
 IN=$2 #$PARENT_DIR/data/$EXP/processed/longranger_out
 OUT_FIL=$3 #$PARENT_DIR/data/$EXP/processed/longranger_clean
 OUT=$4

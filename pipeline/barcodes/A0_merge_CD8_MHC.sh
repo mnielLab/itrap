@@ -18,3 +18,6 @@ cat $MHC_OUT $CD8_OUT > $FIL_OUT
 rm $MHC_OUT $CD8_OUT
 mkdir -p ${WRK_DIR}/raw
 mv $MHC_IN $CD8_IN ${WRK_DIR}/raw/.
+
+# OBS!
+# EDIT script so that it concatenates all -fastq.gz files in a directory. The added string could be the basename of the file?

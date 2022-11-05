@@ -1,24 +1,29 @@
 #!/bin/bash
 
-# Get this script's parent dir, and work from there:
-DIR="/home/tuba/herpov/tcr-pmhc-sc-project"
-EXP="exp3_TCR" # Variable
-INP=$DIR/data/$EXP/processed/mkfastq_out
-OUT=$DIR/data/$EXP/processed/cellranger_out
+IN_DIR=$(echo $1 | rev | cut -d'/' -f3- | rev) #$(dirname $INP)
+OUT_DIR=$(echo $2 | rev | cut -d'/' -f4- | rev)
 
-DATASET="TCR" # Variable
-PRJ=$(find $INP/Reports/html/*  -maxdepth 0 -type d | sed 's/.*-//')
-REF=/home/tuba/marquard/tcr_seq/10x/apps/refdata-cellranger-vdj-GRCh38-alts-ensembl-2.0.0
+echo $OUT_DIR
 
-if [ ! -d "$OUT" ]; then
-        mkdir -p $OUT
-else
-        rm -rf $OUT
-        mkdir -p $OUT
+# Do I have to delete the folder or is it reminisance from testing stuf?
+if [ -d "$OUT_DIR" ]; then
+	echo "I exist"
+	rm -rf $OUT_DIR
+	mkdir $OUT_DIR
 fi
 
+cd $OUT_DIR
 
-cellranger vdj --id ${DATASET}_VDJ --fastqs $INP/$PRJ/$DATASET --reference $REF --sample $DATASET --chain TR
+PRJ=$(find $IN_DIR/Reports/html/*  -maxdepth 0 -type d | sed 's/.*-//')
+#REF=/home/tuba/marquard/tcr_seq/10x/apps/refdata-cellranger-vdj-GRCh38-alts-ensembl-2.0.0
+#REF=/home/tuba-nobackup/shared/cellranger/reference/refdata-cellranger-vdj-GRCh38-alts-ensembl-3.1.0
+REF=/home/tuba-nobackup/shared/cellranger/reference/refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0
 
-mv ${DATASET}_VDJ $OUT/
+#CELLRANGER=/home/tuba-nobackup/shared/cellranger/cellranger-3.1.0/cellranger
+#$CELLRANGER vdj --id=TCR_VDJ --fastqs=$IN_DIR/$PRJ/TCR/ --reference=$REF --sample=TCR --chain=TR
+
+CELLRANGER=/home/tuba-nobackup/shared/cellranger/cellranger-6.1.1/cellranger
+$CELLRANGER vdj --id=TCR_VDJ --fastqs=$IN_DIR/$PRJ/ --reference=$REF --sample=TCR --chain=TR
+#$CELLRANGER vdj --id=TCR_VDJ_v4 --fastqs=$IN_DIR/$PRJ/TCR1/,$IN_DIR/$PRJ/TCR2/ --reference=$REF --sample=TCR1,TCR2 --chain=TR
+#$CELLRANGER vdj --id=TCR_VDJ2 --fastqs=$IN_DIR/$PRJ/TCR2/ --reference=$REF --sample=TCR2 #--chain=TR
 

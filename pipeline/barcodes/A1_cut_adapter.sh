@@ -1,6 +1,6 @@
 #!/bin/bash
-set -euo pipefail
-IFS=$'\n\t'
+#set -euo pipefail
+#IFS=$'\n\t'
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/#solution-positional-parameters
 
 # Helle Povlsen
@@ -18,10 +18,11 @@ IFS=$'\n\t'
 #            |||||||||||||||||||||||
 #            RevComp of this is the 3' adapter to remove
 
-IN=${1:-}
-OUT=${2:-} #$PARENT_DIR/data/$EXP/processed/cut_adapter
-PLATFORM=${3:-} #"ILLUMINA" #"IONTORRENT"
+IN=$1
+OUT=$2 #$PARENT_DIR/data/$EXP/processed/cut_adapter
+PLATFORM=$3 #"ILLUMINA" #"IONTORRENT"
 
+IN_DIR=$(dirname $IN)
 OUT_DIR=$(dirname $OUT)
 
 mkdir -p $OUT_DIR
@@ -52,19 +53,23 @@ TRIMGALORE="/home/tuba/shared/bin/trim_galore"
 
 
 #$PARENT_DIR/data/$EXP/raw/
-for f in $IN/*fastq* ; do
+for f in $IN_DIR/*fastq* ; do
 	
 # parentheses and the ampersand put this in a subshell, meaning that we can run all instances of longranger in parallel...!)
 
 (	#---- Remove adapter sequences
 
+	echo $f
+	FN=$(basename $f)
+
 	if [ "$PLATFORM" = "IONTORRENT" ]; then
 		#FQ=$OUT_DIR/${PLATFORM}_$FILE_EXT #S1_L001_R1_001.fastq
 
-		ADAPTER_5p="CACGACGCTCTTCCGATCT"
-		ADAPTER_3p="ATCACCGACTGCCCATAGAGAGG"
+		ADAPTER_5p="CACGACGCTCTTCCGATCT" #CACGACGCTCTTCCGATCT
+		ADAPTER_3p="ATCACCGACTGCCCATAGAGAGG" #GGAGAGATACCCGTCAGCCACTA #CCTCTCTATGGGCAGTCGGTGAT
 
-		$CUTADAPT -a ${ADAPTER_5p}...${ADAPTER_3p} -o $OUT $f > $OUT_DIR/$PLATFORM.cutadapt.log
+		#$CUTADAPT -a "^${ADAPTER_5p};optional...${ADAPTER_3p}" -o $OUT $f > $OUT_DIR/$PLATFORM.cutadapt.log # Added ;optional
+		$CUTADAPT -a "^${ADAPTER_5p}...${ADAPTER_3p}" -o $OUT_DIR/$FN $f > $OUT_DIR/$FN.cutadapt.log # Added ;optional
 	else
 		# OBS! Instead of creating two files al the way down, merge the two together after annotating the read IDs with MHC or CD8.
 		#FQ=$OUT_DIR/${PLATFORM}_$FILE_EXT #S1_L001_R1_001.fastq #-${BARCODE_TYPE}

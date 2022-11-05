@@ -5,5 +5,8 @@
 **/tables
 **/.DS_Store
 *-checkpoint.ipynb
+**/.ipynb_checkpoints
 **/.snakemake
 *test*e
+**/._*
+**/__pycache__

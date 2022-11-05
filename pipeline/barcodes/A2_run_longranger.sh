@@ -18,8 +18,9 @@ OUT=$2 #$PARENT_DIR/data/$EXP/processed/longranger_out
 OUT_DIR=$3
 
 IN_DIR=$(dirname $IN)
-
+echo $IN_DIR
 echo $OUT_DIR
+ls $OUT_DIR
 mkdir -p $OUT_DIR
 
 for file in $IN ; do

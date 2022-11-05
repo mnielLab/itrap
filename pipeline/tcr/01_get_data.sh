@@ -2,7 +2,7 @@
 
 # get illumna seq data for our 10x barcoding pilot study, which was sequenced at DTU bioengineering
 
-EXP="exp3_TCR"
+EXP="exp5_TCR_ILLUMINA"
 DIR="/home/tuba/herpov/tcr-pmhc-sc-project/data/"$EXP"/raw"
 #DATA_ID="MS_2x150_TCR_190501"
 
@@ -22,15 +22,21 @@ bs list datasets
 # +-------------+-------------------------------------+---------------------+---------------------+
 
 
-# Get RAW intensities to make fastqs ourselves
-# | TCR_2_L001  | ds.9ab0b98f8fb248b2a74f05c6289c3213 | MS_2x150_TCR_190222 | illumina.fastq.v1.8 |
-bs-cp -v https://basespace.illumina.com/Run/$EXP ${DIR}/.
+# The date is in the Project.Name eg. 190222 is 22/2-19
 
-# Next for barcodes:
+# GET TCR SEQs
+# downloads raw intensities to make fastqs
+#bs-cp -v https://basespace.illumina.com/Run/$PROJECT_NAME ${DIR}/.
+# https://developer.basespace.illumina.com/docs/content/documentation/cli/cli-examples
+# https://help.basespace.illumina.com/articles/descriptive/basespace-python-cli
+# https://bioinformatics.uconn.edu/data-download-from-basespace-illumina/
 
-# Get FASTQS
-# bs download dataset -i ds.2f8096f0efc545a6a06add4b435fa12b -o fastq
+# GET BARCODES (sequenced with bs):
+# downloads fastq files
+#bs download dataset -i ds.2f8096f0efc545a6a06add4b435fa12b -o fastq
 
+# GET BARCODES (sequenced with IONTORRENT):
+# Go to PrimBio Portal using link sent by Amalie, 14.06.2019
 
 
 
