@@ -7,6 +7,8 @@
 *-checkpoint.ipynb
 **/.ipynb_checkpoints
 notebooks/.ipynb_checkpoints/*
+**/tmp_files/*
+**/.Rhistory
 **/.snakemake
 *test*e
 **/._*
