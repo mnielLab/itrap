@@ -6,6 +6,7 @@
 **/.DS_Store
 *-checkpoint.ipynb
 **/.ipynb_checkpoints
+notebooks/.ipynb_checkpoints/*
 **/.snakemake
 *test*e
 **/._*
