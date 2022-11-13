@@ -1,9 +1,16 @@
 import pandas as pd
 import re
 import os
+
 #################################################################
 #                            Targets                            #
 #################################################################
+"""
+Add intermediate targets to pipeline to test partial run, e.g. add:
+
+TARGET['write_count_matrix'] = MHC_DIRECTORY + "/count/matrix.kma.mtx"
+"""
+
 TARGET['write_count_matrix'] = MHC_DIRECTORY + "/count/matrix.kma.mtx"
 
 #################################################################
@@ -14,23 +21,10 @@ TARGET['write_count_matrix'] = MHC_DIRECTORY + "/count/matrix.kma.mtx"
 #                   Barcodes analyzed by KMA                    #
 #################################################################
 
-#def get_filenames(wildcards):
-#    files = dict()
-#    for read in ['R1','R2']:
-#        prefix = sorting[wildcards.sorting][wildcards.custom_barcode]
-#        print(prefix)
-#        print(f'{dir_fqs}/**/{prefix}*{read}*.gz')
-#        file_lst = glob.glob(f'{dir_fqs}/**/{prefix}*{read}*.gz')
-#        print(file_lst)
-#        if file_lst == []:
-#            print(glob.glob(f'{dir_fqs}/{prefix}*.gz'))
-#            file_lst = glob.glob(f'{dir_fqs}/{prefix}*{read}*.gz')
-#        print(file_lst)
-#        assert len(file_lst) == 1
-#        files[read] = file_lst[0]
-#    return files
-
 def get_filenames(wildcards):
+    """
+    Retrieving files based on prefixes listed in config.
+    """
     prefix = sorting[wildcards.sorting][wildcards.custom_barcode]
     file_lst = glob.glob(f'{dir_fqs}/**/{prefix}*.gz', recursive=True)
     
@@ -39,42 +33,16 @@ def get_filenames(wildcards):
         read = re.search('_S\d+_L\d+_(R\d+)_\d+\.\w+\.gz', filename).group(1)
         files[read] = filename
         
-    print(files)
     return files
     
 ruleorder: cut_adapters > skip_adapter_trimming
-#rule cut_adapters:
-#    """
-#    If the sequencing provider is IONTORRENT for the custom barcodes
-#    it is important to trim the 5' adapters before running longranger
-#    to fetch the GEM barcodes.
-#    I assume that if the data is single end then it is also IONTORRENT.
-#    If the data is single end I also need to write a dummy R2 for longranger.
-#    """
-#    input:
-#        unpack(get_filenames)
-#    output:
-#        R1 = MHC_DIRECTORY + '/cut_adapters/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R1']),
-#        R2 = MHC_DIRECTORY + '/cut_adapters/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R2'])
-#    params:
-#        ADAPTER_5p = "CACGACGCTCTTCCGATCT", # IONTORRENT
-#        cutadapt = config['cutadapt']
-#    run:
-#        print('running cut_adapters')
-#        if input.R2:
-#            print('linking the paired reads')
-#            # Paired end reads
-#            shell("ln -sr {input.R1} {output.R1}")
-#            shell("ln -sr {input.R2} {output.R2}")
-#        else:
-#            print('making dummy R2 reads')
-#            # Single end reads
-#            shell("{params.cutadapt} -g {params.ADAPTER_5p} -o {output.R1} {input.R1}")
-#            # Make dummy read
-#            shell("./workflow/wrappers/wrt_dummy_reads.sh {input.R1} {output.R2}")
-#            # zcat $1 | awk --posix '{ if (NR % 4 == 0) { sub(/.*/,"CCCCCCCC")} else if (NR % 2 == 0) { sub(/.*/,"NNNNNNNN")}; print}' > $2
 
 rule cut_adapters:
+    """
+    Trimming adapters using cutadapt.
+    Assuming barcode reads are not paired end.
+    Making dummy reads for R2, since Longranger does not handle single-end reads, but only paired end.
+    """
     input:
         unpack(get_filenames)
     output:
@@ -89,22 +57,27 @@ rule cut_adapters:
         shell("{params.cutadapt} -g {params.ADAPTER_5p} -o {output.R1} {input.R1}")
         # Make dummy read
         shell("./workflow/wrappers/wrt_dummy_reads.sh {input.R1} {output.R2}")
-        # zcat $1 | awk --posix '{ if (NR % 4 == 0) { sub(/.*/,"CCCCCCCC")} else if (NR % 2 == 0) { sub(/.*/,"NNNNNNNN")}; print}' > $2
         
 rule skip_adapter_trimming:
+    """
+    Skipping adapter trimming.
+    Assuming paired end reads.
+    """
     input:
         unpack(get_filenames)
     output:
         R1 = MHC_DIRECTORY + '/cut_adapters/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R1']),
         R2 = MHC_DIRECTORY + '/cut_adapters/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R2'])
     run:
-        print('Skipping adapter trimming and linking the paired reads')
-        # Paired end reads
         shell("ln -sr {input.R1} {output.R1}")
         shell("ln -sr {input.R2} {output.R2}")
             
 rule run_longranger:
-    # Does not handle single end reads, only paired end.
+    """
+    Running Longranger on R1 and (dummy) R2 to extract 10x barcode.
+    Longranger partially removes the UMI directly upstream of the 10x barcode.
+    Longranger produces output dir of random name in CWD.
+    """
     input:
         R1 = MHC_DIRECTORY + '/cut_adapters/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R1']),
         R2 = MHC_DIRECTORY + '/cut_adapters/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R2'])
@@ -114,8 +87,8 @@ rule run_longranger:
         rundir = lambda wildcards, output: os.path.dirname(os.path.abspath(output[0])),
         longranger = config['longranger'],
         identifier = '{custom_barcode}_{sorting}',
-        fastqs = lambda wildcards, input: os.path.dirname(os.path.abspath(input.R1)), #dir_fqs,
-        sample = lambda wildcards, input: re.sub('_S\d+_L\d+_R\d+_\d+\.\w+\.gz', '', os.path.basename(input.R1)) #sorting[wildcards.sorting][wildcards.custom_barcode]
+        fastqs = lambda wildcards, input: os.path.dirname(os.path.abspath(input.R1)),
+        sample = lambda wildcards, input: re.sub('_S\d+_L\d+_R\d+_\d+\.\w+\.gz', '', os.path.basename(input.R1))
     shell:
         """
         cd {params.rundir}
@@ -124,7 +97,10 @@ rule run_longranger:
         """
 
 rule deinterleave_longranger_output:
-    # Should I also remove the remaining 3 UMI?
+    """
+    Longranger outputs interleaved R1 and R2 reads which are separated into two files again.
+    The remaining UMI are removed in this step.
+    """
     input:
         MHC_DIRECTORY + '/longranger/{custom_barcode}_{sorting}.done'
     params:
@@ -138,6 +114,9 @@ rule deinterleave_longranger_output:
         """
 
 rule make_templates:
+    """
+    Construct barcode reference sequences comprising of the DNA barcode library.
+    """
     input:
         brc_info = os.path.join(LIB_DIRECTORY, 'barcode_design.yaml'),
         nomencl = os.path.join(LIB_DIRECTORY, 'barcode_specificity_annotations.xlsx')
@@ -149,6 +128,9 @@ rule make_templates:
         "../../scripts/A2_construct_template_database.py"
 
 rule run_kma_index:
+    """
+    Index the barcode reference sequences for fast mapping.
+    """
     input:
         MHC_DIRECTORY + "/mapping/barcode_templates.fa"
     output:
@@ -160,6 +142,9 @@ rule run_kma_index:
         "{params.mapper} index -i {input} -o {params.prefix}"
 
 rule run_kma_map:
+    """
+    Map DNA barcode reads against barcode reference sequences.
+    """
     input:
         R1 = MHC_DIRECTORY + '/longranger/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R1']),
         R2 = MHC_DIRECTORY + '/longranger/{{custom_barcode}}_{{sorting}}_{ext}'.format(ext=config['dummy_ext']['R2']),
@@ -185,9 +170,12 @@ rule run_kma_map:
             {params.mapper} -i {input.R1} -o {params.output_prefix} -t_db {params.input_prefix} {params.arguments}
         fi
         """
+        
 rule clean_and_merge_kma_output:
-    # Maybe still parallelize on custom_barcode?
-    # Maybe just merge without annotating custom barcode and sorting?
+    """
+    Merge barcodes, when both positive and negative staining pools are sequenced.
+    Remove reads mapping to multiple reference templates.
+    """
     input:
         expand(MHC_DIRECTORY + "/mapping/{custom_barcode}_{sorting}/mapping.frag.gz", sorting=sorting.keys(), custom_barcode=custom_barcodes)
     output:
@@ -213,41 +201,22 @@ rule clean_and_merge_kma_output:
         print(output[0])
         pd.concat(dfs, ignore_index=True).to_csv(output[0], sep='\t', header=False, index=False)
 
-## --cores 20
-#rule extract_umis:
-#	input:
-#		MHC_DIRECTORY + "/mapping/mapping.frag.gz",
-#		"tools/barcode_oligos/samples.rv.fa", #config['samples']['default'], #MHC_DIRECTORY + "/barcode_library/sample.fa",
-#		"tools/barcode_oligos/oligo_a.25mer.rv.fa", #config['oligo_a']['25mer'], #MHC_DIRECTORY + "/barcode_library/oligo_a.fa",
-#		config['oligo_b']['25mer'], #MHC_DIRECTORY + "/barcode_library/oligo_b.fa",
-#		"tools/barcode_oligos/barcode-information.fa"
-#	output:
-#		MHC_DIRECTORY + "/mapping/umi.tsv"
-#	#conda:
-#	#	"snake_envs/umi.yaml"
-#	shell:
-#		"/home/tuba-nobackup/shared/R/R-3.6.1/bin/Rscript ./scripts/parse-kma-results.R {input} {output}"
-#
-
-#rule detect_umis:
-#
-#rule augment_barcode_data:
 
 # the checkpoint that shall trigger re-evaluation of the DAG
 checkpoint split_mapping_output_by_template:
+    """
+    Split file of mapped barcodes into file per barcode.
+    """
     input:
         MHC_DIRECTORY + "/mapping/mapping.frag.gz"
     output:
-        directory(MHC_DIRECTORY + "/mapping/spl/") #split/map/
+        directory(MHC_DIRECTORY + "/mapping/spl/")
     shell:
         """
         # Many errors! This step might have to be done manually :(
         #set +e
         #set +o pipefail
         cd {output}
-        echo $?
-        echo $(ls {output})
-        echo $?
         zcat {input} | awk '{{print > $6}}'
         exitcode=$?
         if [ $exitcode -eq 1 ]
@@ -257,31 +226,36 @@ checkpoint split_mapping_output_by_template:
             exit 0
         fi
         """
-        #./workflow/wrappers/split_fasta.sh {input} {output}
-#        if [ ! -d {output} ]; then mkdir {output}; fi
 
 # an intermediate rule
 rule prep_pairwise_alignment_inputs:
+    """
+    Split barcode reference fasta into a fasta file per template.
+    Convert table of mapped results to fasta format per barcode.
+    """
     input:
         aseq = MHC_DIRECTORY + "/mapping/barcode_templates.fa",
-        bseq = MHC_DIRECTORY + "/mapping/spl/{i}" #map
+        bseq = MHC_DIRECTORY + "/mapping/spl/{bc}"
     output:
-        aseq = MHC_DIRECTORY + "/mapping/seq/{i}.aseq.fa", #seq
-        bseq = MHC_DIRECTORY + "/mapping/seq/{i}.bseq.fa"
+        aseq = MHC_DIRECTORY + "/mapping/seq/{bc}.aseq.fa",
+        bseq = MHC_DIRECTORY + "/mapping/seq/{bc}.bseq.fa"
     params:
-        i = '{i}'
+        bc = '{bc}'
     shell:
         """
-        grep '{params.i}' -A 1 {input.aseq} > {output.aseq}
+        grep '{params.bc}' -A 1 {input.aseq} > {output.aseq}
         awk -F'\t' -v OFS='\t' '{{print $7, $1}}' {input.bseq} | awk -F'\t' -v OFS='\n' '{{$1 = ">" $1}} 1' > {output.bseq}
         """
         
 rule pairwise_alignment:
+    """
+    Align reads against template to identify UMI sequences and quantify abundance.
+    """
     input:
-        aseq = MHC_DIRECTORY + "/mapping/seq/{i}.aseq.fa", #seq
-        bseq = MHC_DIRECTORY + "/mapping/seq/{i}.bseq.fa"
+        aseq = MHC_DIRECTORY + "/mapping/seq/{bc}.aseq.fa",
+        bseq = MHC_DIRECTORY + "/mapping/seq/{bc}.bseq.fa"
     output:
-        outf = MHC_DIRECTORY + "/mapping/aln/{i}.aln" #aln
+        outf = MHC_DIRECTORY + "/mapping/aln/{bc}.aln"
     params:
         aligner = config['pairwise_aligner'],
         o = 10,
@@ -292,48 +266,59 @@ rule pairwise_alignment:
         """
 
 rule extract_umi:
+    """
+    Identify and extract UMI to quantify abundance.
+    """
     input:
-        MHC_DIRECTORY + "/mapping/aln/{i}.aln"
+        MHC_DIRECTORY + "/mapping/aln/{bc}.aln"
     output:
-        MHC_DIRECTORY + "/mapping/umi/{i}.tsv"
+        MHC_DIRECTORY + "/mapping/umi/{bc}.tsv"
     conda:
         "../envs/biopython.yaml"
     script:
         "../../scripts/extract_umi.py"
         
 rule count_umi:
+    """
+    Quantify abundance of each barcode by counts of UMI.
+    """
     input:
-        mpp = MHC_DIRECTORY + "/mapping/spl/{i}",
-        umi = MHC_DIRECTORY + "/mapping/umi/{i}.tsv"
+        mpp = MHC_DIRECTORY + "/mapping/spl/{bc}",
+        umi = MHC_DIRECTORY + "/mapping/umi/{bc}.tsv"
     output:
-        MHC_DIRECTORY + "/mapping/cnt/{i}.csv"
+        MHC_DIRECTORY + "/mapping/cnt/{bc}.csv"
     script:
         "../../scripts/count_umi.py"
         
 def aggregate_input(wildcards):
+    """
+    Produce list of expected output filenames from count_umi rule.
+    OBS! Fragile function. Does not behave well upon reruns!
+    All files from checkpoint until aggregate function should be removed for proper rerun.
+    """
     checkpoint_output = checkpoints.split_mapping_output_by_template.get(**wildcards).output[0]
-    print(checkpoint_output)
-    template_ids = glob_wildcards(os.path.join(checkpoint_output, "{i}")).i
-    # For some reason the function picks up the timestamp files?!
-    i = [t for t in template_ids if re.match('^((?!snakemake_timestamp).)*$', t)]
-    print('aggregate func')
-    print(i)
-    #print(expand(MHC_DIRECTORY + "/mapping/cnt/{i}.csv", i=i))
-    return expand(MHC_DIRECTORY + "/mapping/cnt/{i}.csv", i=i)
+    template_ids = glob_wildcards(os.path.join(checkpoint_output, "{bc}")).bc
+    return expand(MHC_DIRECTORY + "/mapping/cnt/{bc}.csv", bc=template_ids)
 
-tmp_barcode_files = ['A4000B303', 'A1072B303', 'A1073B303', 'A1074B303', 'A1075B303', 'A1076B303', 'A1077B303', 'A1078B303', 'A1079B303', 'A1072B304', 'A1073B304', 'A1074B304', 'A1075B304', 'A1076B304', 'A1077B304', 'A1078B304', 'A1072B305', 'A1073B305', 'A1074B305', 'A1075B305', 'A1076B305', 'A1077B305', 'A1078B305', 'A1079B305', 'A1072B306', 'A1073B306', 'A1074B306', 'A1075B306', 'A1076B306', 'A1077B306', 'A1078B306', 'A1079B306', 'A1072B307', 'A1073B307', 'A1074B307', 'A1075B307', 'A1076B307', 'A1077B307', 'A1078B307', 'A1079B307', 'A1072B308', 'A1073B308', 'A1075B308', 'A1077B308', 'A1078B308', 'A1079B308', 'A4000B309', 'A1072B309', 'A1073B309', 'A1074B309', 'A1075B309', 'A1076B309', 'A1077B309', 'A1078B309', 'A1079B309', 'A1072B310', 'A1073B310', 'A1074B310', 'A1075B310', 'A1076B310', 'A1077B310', 'A1078B310', 'A1079B310', 'A4000B311', 'A1072B311', 'A1073B311', 'A1074B311', 'A1075B311', 'A1076B311', 'A1077B311', 'A1078B311', 'A1079B311', 'A1072B313', 'A1073B313', 'A1074B313', 'A1075B313', 'A1076B313', 'A1077B313', 'A1078B313', 'A1079B313', 'A1072B314', 'A1073B314', 'A1074B314', 'A1075B314', 'A1076B314', 'A1077B314', 'A1078B314', 'A1079B314', 'A4000B315', 'A1072B315', 'A1073B315', 'A1074B315', 'A1075B315', 'A1076B315', 'A1077B315', 'A1078B315', 'A1079B315', 'A4000B316', 'A1072B316', 'A1073B316', 'A1074B316', 'A1076B316', 'A1077B316', 'A1079B316', 'A1072B317', 'A1073B317', 'A1074B317', 'A1075B317', 'A1077B317', 'A1078B317', 'A1072B318', 'A1073B318', 'A1074B318', 'A1075B318', 'A1076B318', 'A1077B318', 'A1078B318', 'A1079B318', 'A4000B304', 'A4000B305', 'A4000B306', 'A4000B307', 'A4000B310', 'A4000B313', 'A4000B314', 'A4000B317', 'A4000B318']
 
 # an aggregation over all produced clusters
 rule aggregate_alignments:
+    """
+    Aggregates all UMI counts per barcode per GEM.
+    """
     input:
-        #aggregate_input # <- problems with this step! Manually get a list of the barcodes
-        expand(MHC_DIRECTORY + "/mapping/cnt/{i}.csv", i=tmp_barcode_files)
+        aggregate_input
+        # If problems with above, get a list of barcodes (barcode_file_list) and run line below instead.
+        # expand(MHC_DIRECTORY + "/mapping/cnt/{bc}.csv", i=barcode_file_list)
     output:
-        MHC_DIRECTORY + "/mapping/umi.tsv" # temp()
+        MHC_DIRECTORY + "/mapping/umi.tsv"
     shell:
         "cat {input} > {output}"
         
 rule write_count_matrix:
+    """
+    Convert barcode data into a count matrix of row barcodes and columns GEMs.
+    """
     input:
         MHC_DIRECTORY + "/mapping/umi.tsv"
     output:

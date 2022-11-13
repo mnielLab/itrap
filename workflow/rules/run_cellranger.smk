@@ -1,18 +1,26 @@
 import pandas as pd
 import os
+
 #################################################################
 #                            Targets                            #
 #################################################################
-if config['demultiplexed'] == False:
-    TARGET['mkfastq'] = TCR_DIRECTORY + '/fastq/Stats/DemuxSummaryF1L1.txt' # OBS! Check if this path makes sense!
 
-TARGET['ranger'] = expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting_set), # I expect this to be necessary
-#TARGET['gex_filtering'] = CAT_DIRECTORY + "/tables/gex_filtering.txt"
+"""
+Add intermediate targets to pipeline to test partial run, e.g. add:
+
+TARGET['tcr_clean'] = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv"
+"""
+
+TARGET['tcr_clean'] = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv"
 
 #################################################################
 #                             Rules                             #
 #################################################################
 rule mk_cellranger_configs:
+    """
+    Writes standard config files for running Cellranger multi:
+    https://support.10xgenomics.com/single-cell-vdj/software/pipelines/latest/using/multi#config
+    """
     input:
         barcode_annotations = LIB_DIRECTORY + '/barcode_specificity_annotations.xlsx',
         barcode_library = config['commercial_brc'],
@@ -26,6 +34,12 @@ rule mk_cellranger_configs:
         "../../scripts/write_cellranger_multi_config_files.py"
 
 rule run_cellranger:
+    """
+    Running Cellranger multi.
+    Cellranger generates a system of files and directories from CWD.
+    As both Snakemake and Cellranger generates the output directories, the pipeline breaks.
+    The work-around is to generate a faux output (.done).
+    """
     input:
         multi_config = TCR_DIRECTORY + '/config/{sorting}_multi.csv'
     params:
@@ -42,6 +56,13 @@ rule run_cellranger:
         """
 
 rule clean_augment_tcr:
+    """
+    Reannotating clonotypes:
+    - Clonotypes of identical TCRab AA sequences are merged
+    - GEMs with no clonotypes may be assigned an clonotype in two ways:
+      1. if the TCRab pairs uniquely match an existing clonotype 
+      2. if the TCRab are represent a novel clonotype
+    """
     input:
         expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting_set)
     params:
@@ -55,30 +76,6 @@ rule clean_augment_tcr:
     script:
         "../../scripts/00_clean_augment_tcr.py"
 
-#rule link_cellranger_contig_annotations_output:
-#	input:
-#		expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting.keys())
-#	params:
-#		*expand(TCR_DIRECTORY + '/cellranger_{sorting}/outs/multi/vdj_t/all_contig_annotations.csv', sorting=sorting.keys()) # Unpacking the list
-#	output:                                                                                                                                                                      
-#		TCR_DIRECTORY + '/all_contig_annotations.csv'
-#	shell:
-#		"""
-#		./workflow/wrappers/cat_name_csv.sh {params} {output}
-#		"""
-#
-#rule link_cellranger_clonotypes_output:
-#	input:
-#		expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting.keys())
-#	params:
-#		*expand(TCR_DIRECTORY + '/cellranger_{sorting}/outs/per_sample_outs/cellranger_{sorting}/vdj_t/consensus_annotations.csv', sorting=sorting.keys())                                           
-#	output:                                                                                                                                                                      
-#		TARGET['clonot']
-#	run:
-#		if len(input) > 1:
-#			shell("cat {params} > {output}")
-#		else:
-#			shell("ln -sr {params} {output}")
 
 #################################################################
 #                        Gene expression                        #
@@ -86,6 +83,10 @@ rule clean_augment_tcr:
 ruleorder: filter_gex_data > no_gex_data
 
 rule filter_gex_data:
+    """
+    Filtering data based on Gene expression filters, using Seurat:
+    https://satijalab.org/seurat/articles/pbmc3k_tutorial.html
+    """
     input:
         TCR_DIRECTORY + f'/cellranger_{total}/outs/multi/count/raw_feature_bc_matrix.h5'
     output:
@@ -98,6 +99,9 @@ rule filter_gex_data:
         "Rscript ./scripts/seurat_GEX_filtering.R {input} {output}"
         
 rule no_gex_data:
+    """
+    Generate a dummy GEX filtering file.
+    """
     output:
         touch(CAT_DIRECTORY + "/eval_clonotypes/threshold/gex.txt")
 
@@ -105,6 +109,9 @@ rule no_gex_data:
 #                Barcodes analyzed by Cellranger                #
 #################################################################
 rule link_cellranger_barcodes_output:
+    """
+    Symlink the multimer DNA-barcode count matrix.
+    """
     input:
         TCR_DIRECTORY + f'/cellranger_{total}.done'
     params:
@@ -114,8 +121,7 @@ rule link_cellranger_barcodes_output:
     output:
         brc = MHC_DIRECTORY + "/count/features.10x.tsv.gz",
         gem = MHC_DIRECTORY + "/count/barcodes.10x.tsv.gz",
-        mtx = MHC_DIRECTORY + "/count/matrix.10x.mtx.gz",
-        #tmp = touch(MHC_DIRECTORY + "/count/link.done")
+        mtx = MHC_DIRECTORY + "/count/matrix.10x.mtx.gz"
     run:
         if os.path.isfile(params.brc) & os.path.isfile(params.gem) & os.path.isfile(params.mtx):
             shell("ln -sr {params.brc} {output.brc}")
@@ -123,6 +129,12 @@ rule link_cellranger_barcodes_output:
             shell("ln -sr {params.mtx} {output.mtx}")
             
 rule link_cellranger_gems:
+    """
+    Label GEMs based on multimer sorting.
+    - Multimer positive cells get label 1
+    - Multimer negative cells get label 0
+    - If no negatively sorted cells are included, all GEMs are labelled 1.
+    """
     input:
         expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting.keys())
     params:
@@ -150,8 +162,3 @@ rule link_cellranger_gems:
         tmp.to_csv(output.gems, index=False, header=False)
         
         #assert tmp.duplicated().any() == False
-
-
-
-
-
