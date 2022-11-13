@@ -8,9 +8,10 @@ import os
 """
 Add intermediate targets to pipeline to test partial run, e.g. add:
 
-TARGET['ranger'] = expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting_set)
+TARGET['tcr_clean'] = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv"
 """
 
+TARGET['tcr_clean'] = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv"
 
 #################################################################
 #                             Rules                             #
@@ -34,7 +35,10 @@ rule mk_cellranger_configs:
 
 rule run_cellranger:
     """
-    Running Cellranger multi
+    Running Cellranger multi.
+    Cellranger generates a system of files and directories from CWD.
+    As both Snakemake and Cellranger generates the output directories, the pipeline breaks.
+    The work-around is to generate a faux output (.done).
     """
     input:
         multi_config = TCR_DIRECTORY + '/config/{sorting}_multi.csv'

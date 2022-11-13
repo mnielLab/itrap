@@ -1,6 +1,12 @@
 #################################################################
 #                            Targets                            #
 #################################################################
+"""
+Add intermediate targets to pipeline to test partial run, e.g. add:
+
+TARGET['tcr_brc_cln'] = CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv"
+"""
+
 TARGET['tcr_brc_cln'] = CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv"
 
 #################################################################
@@ -10,15 +16,16 @@ TARGET['tcr_brc_cln'] = CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv"
 #################################################################
 #           Merge Barcodes analyzed by both platforms           #
 #################################################################
-# How to compile output from KMA and cellranger?
-# Use rule inheritance:
-# https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#rule-inheritance
-# Use Handling Ambiguous Rules
-# https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#handling-ambiguous-rules
 
+# Test the following methods to parse count matrix
 ruleorder: parse_count_matrix > parse_count_matrix_2 > parse_count_matrix_3
     
 rule parse_count_matrix:
+    """
+    Merge count matrices of custom barcode reads and barcode reads identified with 10x cellranger.
+    Annotate types of barcode: pMHC, cell hashing, or surface markers.
+    Annotate most abundant barcode per GEM and other summary metrics.
+    """
     input:
         brc = expand(MHC_DIRECTORY + "/count/features.{ext}", ext=['kma.tsv','10x.tsv.gz']),
         gem = expand(MHC_DIRECTORY + "/count/barcodes.{ext}", ext=['kma.tsv','10x.tsv.gz']),
@@ -38,6 +45,11 @@ rule parse_count_matrix:
         "../../scripts/parse_count_matrix.py"
         
 rule parse_count_matrix_2:
+    """
+    Run this rule if barcode reads origin from custom barcodes and are mapped using KMA.
+    Annotate types of barcode: pMHC, cell hashing, or surface markers.
+    Annotate most abundant barcode per GEM and other summary metrics.
+    """
     input:
         brc = expand(MHC_DIRECTORY + "/count/features.{ext}", ext=['kma.tsv']),
         gem = expand(MHC_DIRECTORY + "/count/barcodes.{ext}", ext=['kma.tsv']),
@@ -57,6 +69,11 @@ rule parse_count_matrix_2:
         "../../scripts/parse_count_matrix.py"
         
 rule parse_count_matrix_3:
+    """
+    Run this rule if barcode reads origin from 10x barcodes and are mapped using Cellranger.
+    Annotate types of barcode: pMHC, cell hashing, or surface markers.
+    Annotate most abundant barcode per GEM and other summary metrics.
+    """
     input:
         brc = expand(MHC_DIRECTORY + "/count/features.{ext}", ext=['10x.tsv.gz']),
         gem = expand(MHC_DIRECTORY + "/count/barcodes.{ext}", ext=['10x.tsv.gz']),
@@ -79,30 +96,22 @@ rule parse_count_matrix_3:
 #                     Merge Barcodes and TCR                    #
 #################################################################
 
-rule comb_barcodes_TCR: # Overflødig / eller erstat med run.
+rule comb_barcodes_TCR:
+    """
+    Merge barcode and TCR data based on GEM barcode.
+    """
     input:
         TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv",
-        MHC_DIRECTORY + "/count/brc.augmented.csv" #MHC_DIRECTORY + "/augmented/brc.csv"
+        MHC_DIRECTORY + "/count/brc.augmented.csv"
     output:
         CAT_DIRECTORY + "/tables/tcr_barcode.csv"
     script:
         "../../scripts/C_comb_barcodes_TCR.py"
         
-#rule prep_seurat_HTO_analysis:
-#    input:
-#        df = CAT_DIRECTORY + "/tables/tcr_barcode.csv",
-#        hto = LIB_DIRECTORY + '/barcode_specificity_annotations.xlsx',
-#        brc = expand(MHC_DIRECTORY + "/count/features.{ext}", ext=['10x.tsv.gz']),
-#        gem = expand(MHC_DIRECTORY + "/count/barcodes.{ext}", ext=['10x.tsv.gz']),
-#        mtx = expand(MHC_DIRECTORY + "/count/matrix.{ext}", ext=['10x.mtx.gz'])
-#    output:
-#        temp(CAT_DIRECTORY + "/tables/hto_count_matrix.rds")
-#    conda:
-#        "../envs/prep_seurat.yaml"
-#    script:
-#        "../../scripts/C1_prep_seurat.py"
-        
 rule prep_seurat_HTO_analysis:
+    """
+    Convert count matrix to RDS format for Seurat analysis.
+    """
     input:
         df = CAT_DIRECTORY + "/tables/tcr_barcode.csv",
         hto = LIB_DIRECTORY + '/barcode_specificity_annotations.xlsx',
@@ -119,7 +128,11 @@ rule prep_seurat_HTO_analysis:
         "../../scripts/C1_prep_seurat-Copy1.py"
 
 ruleorder: seurat_HTO_analysis > no_seurat_HTO_analysis
+
 rule seurat_HTO_analysis:
+    """
+    Analyze cell hashing barcodes with Seurat HTO method.
+    """
     input:
         CAT_DIRECTORY + "/tables/hto_count_matrix.rds",
         CAT_DIRECTORY + "/tables/hto_prep.done"
@@ -134,6 +147,9 @@ rule seurat_HTO_analysis:
         "Rscript ./scripts/seurat_HTO_analysis.R {input} {output.out_file} {output.ridge_plot} {output.violin_plot} {output.heatmap}"
  
 rule no_seurat_HTO_analysis:
+    """
+    If no cell hashing barcodes are available, mimic the HTO output.
+    """
     output:
         out_file = CAT_DIRECTORY + "/tables/hto.csv"
     run:
@@ -144,22 +160,20 @@ rule no_seurat_HTO_analysis:
         df.to_csv(output.out_file, index=False)
 
 rule clean_tcr_barcodes:
+    """
+    Merge HTO analysis with main data.
+    Calculate binding concordance.
+    Check clonotypes against VDJdb and IEDB data.
+    """
     input:
-        dat = CAT_DIRECTORY + "/tables/tcr_barcode.csv", #rules.comb_barcodes_TCR.output, #
+        dat = CAT_DIRECTORY + "/tables/tcr_barcode.csv",
         vdj = WRK_DIR + "/tools/VDJdb.csv",
         hto = CAT_DIRECTORY + "/tables/hto.csv"
     params:
-        TCR_DIRECTORY + "/library/clone_rearrangement.tsv" # Change position!
+        TCR_DIRECTORY + "/library/clone_rearrangement.tsv"
     output:
         CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv",
         CAT_DIRECTORY + "/reports/gems/gem_counts.json"
     script:
         "../../scripts/D_clean_tcr_barcodes.py"
         
-
-
-
-
-
-
-

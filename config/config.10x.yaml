@@ -1,21 +1,9 @@
 exp: exp10x
 run: run1
-msg: "Commercial 10x data"
-srt:
-  - positive
-  - negative
-#parent_dir: /home/tuba/herpov/tcr-pmhc-sc-project
+
 
 demultiplexed: True #Is data demultiplexed or not?
-index : SI-TT-A1 #exp2:SI-GA-A2/SI-GA-E6, exp3:SI-GA-A2 #exp6:SI-GA-A4 #exp7: SI-GA-A5 #netTCR1: SI-TT-A3 #netTCR2: SI-TT-A4 #exp9:SI-TT-A2 #exp10:SI-TT-A1
-
-############################################################################
-#                                  Run ID                                  #
-############################################################################
-platform: IONTORRENT
-mapping: KMA
-mapping_args: -1t1
-barcode_system: AKB #COM
+index : SI-TT-A1 
 
 ############################################################################
 #                                  BRC mapping                             #
@@ -35,9 +23,6 @@ commercial_brc: /home/tuba/herpov/tcr-pmhc-sc-project/tools/barcode_oligos/total
 dummy_ext: 
   R1: S1_L001_R1_001.fastq.gz
   R2: S1_L001_R2_001.fastq.gz
-raw_file:
-  EXTZ : S1_L001_R1_001.fastq.gz
-  EXT : S1_L001_R1_001.fastq
 
 ############################################################################
 #                                   BRC tools                              #
@@ -75,34 +60,4 @@ plot_type:
   - multiple_peptides_per_gem_w_filtering
   - mhc_read_count_per_clonotype
   #- tcr_read_count_per_clonotype
-
-umi_delta:
-  - umi_delta0
-  - umi_delta1
-  - umi_delta2
-
-filtration:
-  - no_filtration
-  - exclude_single-chain_TCRs
-  - exclude_ambiguous_and_single-chain_TCRs
-
-version: 1
-
-bc_thresh:
-  - b1
-  - b5
-  - b10
-
-tcr_thresh:
-  - t1
-  - t5
-  - t10
-
-ecs_bool:
-  - False
-
-ess_bool:
-  - False
-
-#https://stackoverflow.com/questions/64271392/overwrite-nested-config-options-on-command-line
 
