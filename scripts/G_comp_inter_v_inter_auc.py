@@ -48,7 +48,7 @@ for s, s_grp in test_df.dropna().groupby('rnd_sample'): # dropna should be super
         test_df.loc[f_grp.index, 'AUC 0.1'] = auc(fpr[fpr < 0.1], tpr[fpr < 0.1])/ 0.1
 
 auc_df = test_df.dropna().melt(id_vars=['rnd_sample', 'filtering'], value_vars=['AUC','AUC 0.1'])
-auc_df['palette'] = auc_df.filtering.map(dict(zip(labels,palette)))
+#auc_df['palette'] = auc_df.filtering.map(dict(zip(labels,palette)))
 
 ##########################################################
 #                  Write output to file                  #

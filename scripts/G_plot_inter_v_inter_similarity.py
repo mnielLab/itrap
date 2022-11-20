@@ -188,12 +188,14 @@ filter_set = snakemake.params.flt
 ##########################################################
 #                          Load                          #
 ##########################################################
-test_df = pd.read_csv(SIM_INPUT).dropna()
+test_df = pd.read_csv(SIM_INPUT, header=None, names=['plateau','rnd_sample','filtering','peptide','ct','score','cdr3s']).dropna()
 auc_df = pd.read_csv(AUC_INPUT)
 
 labels = test_df.filtering.unique()
 print(labels)
-palette = auc_df.set_index('filtering').palette.to_dict()
+p = ['grey','yellow','#ffffcc','#7fcdbb','#41b6c4','#2c7fb8','#d6b4fc','violet']
+palette = sns.color_palette(f"blend:{','.join(p)}", len(labels)).as_hex()
+palette = dict(zip(labels,palette))
 
 # Computing significance of separation between intra and inter for each random sample
 sign_add = pd.Series([0]*len(labels), index=labels)
@@ -320,6 +322,8 @@ plt.close() # Close a figure window
 fpr = dict()
 tpr = dict()
 roc_auc = dict()
+test_df['label'] = np.where(test_df.plateau == 'intra', 2, 0)
+
 for i, flt in test_df.dropna().groupby('filtering'):
     fpr[i], tpr[i], _ = roc_curve(flt.label, flt.score, pos_label=2)
     roc_auc[i] = auc(fpr[i], tpr[i])
