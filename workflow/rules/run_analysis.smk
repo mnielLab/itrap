@@ -63,7 +63,6 @@ rule grid_search:
     Run grid search on UMI values to define optimal set of thresholds.
     """
     input:
-        original = CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv",
         valid_df = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv"
     params:
         lambda wildcards: init_dct[wildcards.random_init]
