@@ -11,9 +11,6 @@ import seaborn as sns
 import yaml
 import decimal
 
-import sys  
-sys.path.insert(0, '../scripts')
-
 from D_plot_specificity_matrix_utils import calc_binding_concordance
 
 sns.set_style('ticks', {'axes.edgecolor': '0',  
@@ -21,15 +18,12 @@ sns.set_style('ticks', {'axes.edgecolor': '0',
                         'ytick.color': '0'})
 
 def HLA_cd8_converter(x):
-    #define format of datetime
     return x.replace("[","").replace("]","").replace(",", "").replace("'","").split(" ")
 
 def cdr3_lst_converter(x):
-    #define format of datetime
     return x.replace("[","").replace("]","").replace("'","").split(" ")
 
 def epitope_converter(x):
-    #define format of datetime
     return [y for y in x.replace("[","").replace("]","").replace("\n","").split("'") if (y != '') & (y != ' ')]
 
 def peptide_hla_converter(x):
@@ -53,11 +47,10 @@ def notnan(x):
 ##########################################################
 #                         Input                          #
 ##########################################################
-VALID = snakemake.input.df #'../experiments/exp13/run1_archive/cat/eval_clonotypes/valid_ct.csv'
-FLT = snakemake.input.flt #'indv' #'rnd_frst_oh'
+VALID = snakemake.input.df
+FLT = snakemake.input.flt
 IDX = snakemake.input.idx
-
-AUC = snakemake.input.auc #'tmp_files/similarity.auc.%s.csv' %filter_set
+AUC = snakemake.input.auc
 
 
 ##########################################################
