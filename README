@@ -9,9 +9,32 @@ The Snakemake_minimal.smk file links the required environments for each script.
 The environment files are found in workflow/envs/.
 
 # Requirements
-Anaconda or other Python source
+Anaconda or other Python source (Python 3.7.3)
+Specific requirements for each script are logged in workflow/envs/
+
+# Inputs
+Table of multimer staining labels (barcode_specificity_annotations.xlsx), containing:
+- MHC sheet: pMHC information
+- HSH sheet: cell hashing information
+- MRK sheet: surface marker sheet (NA)
+
+Contents of MHC sheet:
+- barcode: identifyer of pMHC DNA barcode
+- peptide: amino acid sequence of MHC ligand
+- HLA: HLA allele of MHC molecule
+- epitope: name, if any
+- epitope_rank: subjective order of peptides for plotting
+- comment: any comment
+
+Contents of HSH sheet:
+- barcode: identifyer of hashing DNA barcode
+- sample_id: identifyer for samples
+- HLA_A: comma-separated list of HLA alleles at locus A
+- HLA_B: comma-separated list of HLA alleles at locus B
+- HLA_C: comma-separated list of HLA alleles at locus C
+- comment: any comment
+
 The pipeline expects outputs from Cellranger:
 - Cellranger v6.1.1 used in iTRAP development (https://support.10xgenomics.com/single-cell-vdj/software/pipelines/latest/installation)
 - VDJ reference: refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0 (download from 10x)
 - GEX reference: refdata-gex-GRCh38-2020-A/ (download from 10x)
-
