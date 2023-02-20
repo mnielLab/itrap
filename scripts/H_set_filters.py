@@ -3,26 +3,32 @@
 
 import pandas as pd
 import numpy as np
-#import itertools
 from ast import literal_eval
 import re
-#from random import sample
-#import random
-import re
 import yaml
+import argparse
 
-#plt.style.use('ggplot')
+def get_argparser():
+    """Return an argparse argument parser."""
+    parser = argparse.ArgumentParser(prog = 'Set filters',
+                                     description = 'Generates boolean arrays by which to filter data on.')
+    add_arguments(parser)
+    return parser
+
+def add_arguments(parser):
+    parser.add_argument('--data', required=True, help='Filepath for data')
+    parser.add_argument('--opt-thr', required=True, help='Filepaths for optimal threshold')
+    parser.add_argument('--setting', required=True, choices=['indv','comb'], help='Defined whether filters are applied individually or combined additively.')
+    parser.add_argument('--labels', required=True, help='Filepath for output filter labels')
+    parser.add_argument('--filters', required=True, help='Filepath for output filters')
 
 def HLA_cd8_converter(x):
-    #define format of datetime
     return x.replace("[","").replace("]","").replace(",", "").replace("'","").split(" ")
 
 def cdr3_lst_converter(x):
-    #define format of datetime
     return x.replace("[","").replace("]","").replace("'","").split(" ")
 
 def epitope_converter(x):
-    #define format of datetime
     return [y for y in x.replace("[","").replace("]","").replace("\n","").split("'") if (y != '') & (y != ' ')]
 
 def peptide_hla_converter(x):
@@ -43,31 +49,32 @@ def notnan(x):
     return x == x
 
 def get_multiplets(df):
-    #tmp = df[idx1 & idx2]
     dct = df.groupby(['ct','peptide_HLA']).gem.count() > 1
     idx = df.set_index(['ct','peptide_HLA']).index.map(dct)
     return pd.Series(idx.fillna(False))
 
 ##########################################################
-#                         Inputs                         #
-##########################################################
-VALID = snakemake.input.valid
-THRESHOLD = snakemake.input.opt_thr
-GEX = snakemake.input.gex #'../experiments/exp13/run1_archive/tcr/usable_gems.txt'
-
-filter_set = snakemake.params.flt
-##########################################################
-#                         Output                         #
-##########################################################
-YAML = snakemake.output.flt
-DATA = snakemake.output.idx
-
-##########################################################
 #                          Load                          #
 ##########################################################
 
+try:
+    VALID = snakemake.input.valid
+    THRESHOLD = snakemake.input.opt_thr
+    filter_set = snakemake.params.flt
+    YAML = snakemake.output.lbl
+    DATA = snakemake.output.flt
+except:
+    parser = get_argparser()
+    args = parser.parse_args()
+    
+    VALID = args.data
+    THRESHOLD = args.opt_thr
+    filter_set = args.setting
+    YAML = args.labels
+    DATA = args.filters
+    
+
 opt_thr = pd.read_csv(THRESHOLD, index_col=0, header=None, names=['thr']).thr.dropna()
-gex = pd.read_csv(GEX, header=None, names=['gem'])
 df = pd.read_csv(VALID, converters=converters, low_memory=False)
 
 
@@ -80,7 +87,6 @@ df.fillna({'umi_count_mhc':0, 'delta_umi_mhc':0, "umi_count_mhc_rel":0,
            'umi_count_TRB':0, 'delta_umi_TRB':0}, inplace=True)
 
 # Add extra features
-df['gex'] = df.gem.isin(gex.gem)
 df.single_barcode_mhc = np.where(df.single_barcode_mhc, 'pMHC singlet','pMHC multiplet')
 df['clonotype_multiplet'] = df.ct.map(df.groupby('ct').size() > 1)
 df['HLA_match_per_gem'] = df.apply(lambda row: row.HLA_mhc in row.HLA_cd8 if row.HLA_cd8 == row.HLA_cd8 else False, axis=1)
@@ -89,20 +95,25 @@ df['HLA_match_per_gem'] = df.apply(lambda row: row.HLA_mhc in row.HLA_cd8 if row
 ##########################################################
 #                         Filters                        #
 ##########################################################
-idx0 = ~df.gem.isna() # Total
-idx1 = eval(' & '.join([f'(df.{k} >= {abs(v)})' for k,v in opt_thr.items()])) # optimal threshold
-idx2 = df.hto_global_class == 'Singlet' # Hashing singlets
-idx3 = df.apply(lambda row: row.peptide_HLA.split()[-1] in row.HLA_cd8 if (notnan(row.peptide_HLA) & notnan(row.HLA_cd8)) else False, axis=1) # Matching HLA
-idx4 = df['exclude_single-chain_TCRs'] # Complete TCRs
-idx5 = get_multiplets(df) # Only specificities in multiplets
+# idx0: raw
+# idx1: UMI thresholds
+# idx2: Hashing singlets
+# idx3: Matching HLA
+# idx4: Complete TCRs
+# idx5: Specificity multiplets
+# idx6: Is cell (Cellranger)
+# idx7: Viable cells (GEX)
+idx0 = ~df.gem.isna()
+idx1 = eval(' & '.join([f'(df.{k} >= {abs(v)})' for k,v in opt_thr.items()]))
+idx2 = df.hto_global_class == 'Singlet'
+idx3 = df.apply(lambda row: row.peptide_HLA.split()[-1] in row.HLA_cd8 if (notnan(row.peptide_HLA) & notnan(row.HLA_cd8)) else False, axis=1)
+idx4 = df['exclude_single-chain_TCRs']
+idx5 = get_multiplets(df)
 try:
     idx6 = df.cell_flag # is_cell
 except AttributeError:
     idx6 = df.gem.isna() # All false
-#idx7 = df.is_cell_gex
-idx8 = df.gex # Gene expression data
-
-is_cell_gex = ' (GEX)' if any(idx8) else ''
+idx7 = df.gex
 
 if filter_set == 'indv':
     # Showing individual effects of filtering
@@ -113,22 +124,19 @@ if filter_set == 'indv':
               idx4,
               idx5,
               idx6,
-              #idx7,
-              idx8]
+              idx7]
     labels = ['total','optimal threshold',
           'matching HLA',
           'hashing singlets',
           'complete TCRs',
           'specificity multiplets',
-          'is cell%s' %is_cell_gex,
+          'is cell%s' %(' (GEX)' if any(idx6) else ''),
           'is viable cell']
     palette = ['grey','yellow','#ffffcc','#c7e9b4','#7fcdbb','#41b6c4','#2c7fb8','black']
     
     flt_to_remove = list()
     for i, flt in enumerate(filterings):
-        print(labels[i], sum(flt))
         if sum(flt) == 0:
-            print('removed:', labels[i])
             flt_to_remove.append(i)
             
     for i in flt_to_remove[::-1]:
@@ -138,40 +146,27 @@ if filter_set == 'indv':
 
 elif filter_set == 'comb':
     # Showing combined effects in the same order
-    #filter_set = 'comb'
     labels = ['total','optimal threshold',
               'matching HLA',
               'hashing singlets',
               'complete TCRs',
               'specificity multiplets',
-              'is cell%s' %is_cell_gex,
+              'is cell%s' %(' (GEX)' if any(idx6) else ''),
               'is viable cell']
     palette = ['grey','yellow','#ffffcc','#c7e9b4','#7fcdbb','#41b6c4','#2c7fb8','black'] #'#253494'
     
     flt_to_remove = list()
     filterings = [idx0]
-    for i, flt in enumerate([idx1, idx3, idx2, idx4, idx5, idx6, idx8], start=1):
+    for i, flt in enumerate([idx1, idx3, idx2, idx4, idx5, idx6, idx7], start=1):
         remaining_gems = sum(filterings[-1] & flt)
-        print(labels[i], remaining_gems)
         if remaining_gems > 0:
             filterings.append((filterings[-1] & flt))
         else:
-            print('removed:', labels[i])
             flt_to_remove.append(i)
             
     for i in flt_to_remove[::-1]:
         del labels[i]
         del palette[i]
-            
-    #filterings = [idx0,
-    #              idx1,
-    #              (idx1 & idx3),
-    #              (idx1 & idx2 & idx3),
-    #              (idx1 & idx2 & idx3 & idx4),
-    #              (idx1 & idx2 & idx3 & idx4 & idx5),
-    #              (idx1 & idx2 & idx3 & idx4 & idx5 & idx6),
-    #              #(idx1 & idx2 & idx3 & idx4 & idx5 & idx7),
-    #              (idx1 & idx2 & idx3 & idx4 & idx5 & idx8)]
     
 else:
     print('filterset name unknown')
@@ -182,12 +177,8 @@ else:
 dct = dict(labels = labels,
            palette = palette)
 
-#for f,l in zip(filterings, labels):
-#    print(l)
-#    print(f)
 tmp = pd.concat(filterings, axis=1)
 tmp.columns = labels
-print(tmp.shape)
 
 ##########################################################
 #                  Write output to file                  #

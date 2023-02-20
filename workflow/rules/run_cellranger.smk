@@ -54,6 +54,42 @@ rule run_cellranger:
         
         {params.cellranger} multi --id cellranger_{wildcards.sorting} --csv {input.multi_config}
         """
+        
+rule label_tcr:
+    input:
+        expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting_set)
+    params:
+        contig = expand(TCR_DIRECTORY + '/cellranger_{sorting}/outs/multi/vdj_t/all_contig_annotations.csv', sorting=sorting_set),
+        clonot = TCR_DIRECTORY + f'/cellranger_{total}/outs/per_sample_outs/cellranger_{total}/vdj_t/consensus_annotations.csv'
+    output:
+        TCR_DIRECTORY + "/augmented/tcr.labeled.csv"
+    run:
+        for filename in params.contig:
+            if 'tot' in filename:
+                INPUT = filename
+            elif 'pos' in filename:
+                POSITIVE_GEMS = filename
+            elif 'neg' in filename:
+                NEGATIVE_GEMS = filename
+                
+        # Load data
+        df = pd.read_csv(INPUT)
+        try:
+            pos_df = pd.read_csv(POSITIVE_GEMS)
+            pos_gems = set(pos_df.barcode)
+        except:
+            pos_gems = set(df.barcode)
+        try:
+            neg_df = pd.read_csv(NEGATIVE_GEMS)
+            neg_gems = set(neg_df.barcode) - pos_gems
+        except:
+            neg_gems = set()
+            
+        # Label data
+        df.loc[df.barcode.isin(pos_gems), 'label'] = 1
+        df.loc[df.barcode.isin(neg_gems), 'label'] = 0
+        
+        df.to_csv(output[0], index=False)
 
 rule clean_augment_tcr:
     """
@@ -64,17 +100,16 @@ rule clean_augment_tcr:
       2. if the TCRab are represent a novel clonotype
     """
     input:
-        expand(TCR_DIRECTORY + '/cellranger_{sorting}.done', sorting=sorting_set)
+        contig = TCR_DIRECTORY + "/augmented/tcr.labeled.csv"
     params:
-        contig = expand(TCR_DIRECTORY + '/cellranger_{sorting}/outs/multi/vdj_t/all_contig_annotations.csv', sorting=sorting_set),
         clonot = TCR_DIRECTORY + f'/cellranger_{total}/outs/per_sample_outs/cellranger_{total}/vdj_t/consensus_annotations.csv'
     output:
-        TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv",
-        TCR_DIRECTORY + "/reports/gems/gem_counts.json"
+        output = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv",
+        report = TCR_DIRECTORY + "/reports/gems/gem_counts.json"
     conda:
         "../envs/basic_dependencies.yaml"
     script:
-        "../../scripts/00_clean_augment_tcr.py"
+        "../../scripts/A_clean_augment_tcr.py"
 
 
 #################################################################
@@ -96,7 +131,7 @@ rule filter_gex_data:
     conda:
         "../envs/seurat_gex_filtering.yaml"
     shell:
-        "Rscript ./scripts/seurat_GEX_filtering.R {input} {output}"
+        "Rscript ./scripts/B0_seurat_gex_analysis.R {input} {output}"
         
 rule no_gex_data:
     """

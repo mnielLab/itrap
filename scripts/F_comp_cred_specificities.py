@@ -10,12 +10,10 @@ from scipy import stats
 from random import sample
 import seaborn as sns
 import matplotlib.gridspec as gridspec
-
-#plt.style.use('ggplot')
+import argparse
 
 import os
 import sys
-from D_plot_specificity_matrix_utils import (calc_binding_concordance)
 
 sns.set_style('ticks', {'axes.edgecolor': '0',  
                         'xtick.color': '0',
@@ -50,7 +48,32 @@ converters = {'peptide_HLA_lst': peptide_hla_converter,
               'HLA_lst_mhc': cdr3_lst_converter,
               'HLA_pool_cd8':cdr3_lst_converter,
               'HLA_cd8': HLA_cd8_converter,
-              'HLA_lst_cd8':literal_converter,'sample_id_lst':literal_converter} #
+              'HLA_lst_cd8':literal_converter,'sample_id_lst':literal_converter}
+
+def calc_binding_concordance(df, clonotype_fmt):
+    gems_per_specificity        = df.groupby([clonotype_fmt,'peptide_HLA']).gem.count().to_dict()
+    df['gems_per_specificity']  = df.set_index([clonotype_fmt,'peptide_HLA']).index.map(gems_per_specificity)
+    gems_per_spec_hla_match     = df[df.HLA_match == True].groupby([clonotype_fmt, 'peptide_HLA']).gem.count().to_dict()
+    df['gems_per_spec_hla_match'] = df.set_index([clonotype_fmt,'peptide_HLA']).index.map(gems_per_spec_hla_match)
+    gems_per_clonotype          = df.groupby([clonotype_fmt]).gem.count().to_dict()
+    df['gems_per_clonotype']    = df[clonotype_fmt].map(gems_per_clonotype)
+    df['binding_concordance']   = df.gems_per_specificity / df.gems_per_clonotype
+    df['hla_concordance']       = df.gems_per_spec_hla_match / df.gems_per_specificity
+    df['hla_concordance']       = df.hla_concordance.fillna(0)
+    return df
+
+def get_argparser():
+    """Return an argparse argument parser."""
+    parser = argparse.ArgumentParser(prog = 'Evaluate clonotypes',
+                                     description = 'Evaluates which clonotypes can be used for grid search to identify optimal UMI thresholds')
+    add_arguments(parser)
+    return parser
+
+def add_arguments(parser):
+    parser.add_argument('--input', required=True, help='Filepath for data')
+    parser.add_argument('--barcodes', required=True, help='Filepath for barcode specifications')
+    parser.add_argument('--output', required=True, help='Filepath for output data')
+    parser.add_argument('--plots', required=True, help='Filepath for output plots (must contain two placeholders, ie plt_dir/%s/%d.pdf)')
 
 #########################################################################################################
 #                                                 Class                                                 #
@@ -85,12 +108,12 @@ class Evaluate_Clonotype():
         self.sel_cts = selected_clonotypes
         self.sel_cts.index = self.sel_cts.index.astype(int)
         
-        # Initialize matrix of query count per GEM (not method (df is not self <- WHY?))
-        self.queries = df[self.var_lst].explode().drop_duplicates() #.unique()
+        # Initialize matrix of query count per GEM 
+        self.queries = df[self.var_lst].explode().drop_duplicates()
         self.mat = pd.DataFrame(index=self.queries, columns=df.gem.unique())
         
-        # Count no. of GEMs within grp that are annotated with a specific pMHC (method?)
-        self.gems_per_query = self.df.explode(self.variable).groupby(self.variable).size() # explode only really necessary for HLA_pool_cd8, but doesnt make a difference for other variables.
+        # Count no. of GEMs within grp that are annotated with a specific pMHC
+        self.gems_per_query = self.df.explode(self.variable).groupby(self.variable).size()
         self.gems_per_all_q = pd.concat([self.gems_per_query,
                                          pd.Series(0, index=self.queries[~self.queries.isin(self.gems_per_query.index)])])
         
@@ -110,7 +133,7 @@ class Evaluate_Clonotype():
                 self.mat.loc[var_lst, row.gem] = umi_lst
             else:
                 self.mat.loc[var_lst, row.gem] = [0] * len(var_lst)
-        self.mat.fillna(0, inplace=True) # outcomented..
+        self.mat.fillna(0, inplace=True)
                 
     def calc_summary(self):
         self.summary_df = self.mat.sum(axis=1).sort_values(ascending=False).to_frame().rename(columns={0:'s'})
@@ -126,27 +149,16 @@ class Evaluate_Clonotype():
         if self.rel_umi:
             self.mat = self.mat / self.df[umi].quantile(0.9, interpolation='lower')
         return self.df[umi] / self.df[umi].quantile(0.9, interpolation='lower')
-    
-    #def select_queries(self, n=11):
-    #    self.selected_queries = self.summary_df.head(n).index
-    #    self.selected_mat = self.mat[self.mat.index.isin(self.selected_queries)]
         
     def select_queries(self, n=11):
         self.selected_queries = self.summary_df.head(n).index
         self.selected_mat = self.mat.loc[self.mat.index.isin(self.selected_queries), self.df.gem]
-
-    #def transform_data_for_plotting(self):
-    #    """
-    #    For each row have unique combination of pMHC and GEM.
-    #    """
-    #    self.plt_df = self.selected_mat.melt(ignore_index=False, var_name='gem', value_name='umi').dropna()
-    #    self.plt_df.umi = self.plt_df.umi.astype(int)
         
     def transform_data_for_plotting(self):
         """
         For each row have unique combination of pMHC and GEM.
         """
-        self.plt_df = self.selected_mat.melt(ignore_index=False, var_name='gem', value_name='umi').fillna(0) # OBS! new with replace!#.dropna()
+        self.plt_df = self.selected_mat.melt(ignore_index=False, var_name='gem', value_name='umi').fillna(0)
         self.plt_df.umi = self.plt_df.umi.astype(int)
 
     def add_gem_count(self):
@@ -170,11 +182,6 @@ class Evaluate_Clonotype():
             self.plt_df[self.var_lst] = self.plt_df[self.var_lst].fillna('').astype(str) #why do I have nans?
         self.plt_df.sort_values(by=self.var_lst, inplace=True)
             
-    # Not needed anymore...
-    #def add_scatter(self):
-    #    for i, (name, subdf) in reversed(list(enumerate(self.plt_df.groupby('peptide_HLA_lst', sort=False)))): #reversed(list(grouped))
-    #        self.plt_df.loc[subdf.index, 'y'] = np.random.normal(i, 0.1, subdf.shape[0])
-    
     def transform_to_concordance(self):
         self.conc_df = (self.plt_df.sort_values(by=['gem','umi'])
                         .drop_duplicates(subset='gem', keep='last')
@@ -206,9 +213,9 @@ class Evaluate_Clonotype():
         fig.suptitle(f"Clonotype {self.ct}")
 
         gs = gridspec.GridSpec(1, 3, width_ratios=[2, 7, 2], wspace=0.2) #, left=0.05
-        ax1 = fig.add_subplot(gs[0]) #ax1 = plt.subplot(gs[0, 0])
-        ax2 = fig.add_subplot(gs[1]) #ax2 = plt.subplot(gs[0,1])
-        ax3 = fig.add_subplot(gs[2]) #ax3 = plt.subplot(gs[0, 2])
+        ax1 = fig.add_subplot(gs[0])
+        ax2 = fig.add_subplot(gs[1])
+        ax3 = fig.add_subplot(gs[2])
 
         ########################
         # Add multipletplot
@@ -225,11 +232,11 @@ class Evaluate_Clonotype():
         ########################
         # Add boxplot
         ###############################
-        PROPS = {'boxprops':{'alpha':0.3}, #'facecolor':'none', 
+        PROPS = {'boxprops':{'alpha':0.3},
                  'medianprops':{'alpha':0.3},
                  'whiskerprops':{'alpha':0.3},
                  'capprops':{'alpha':0.3}}
-        EMPTY = {'boxprops':{'alpha':0}, #'facecolor':'none', 
+        EMPTY = {'boxprops':{'alpha':0},
                  'medianprops':{'alpha':0},
                  'whiskerprops':{'alpha':0},
                  'capprops':{'alpha':0}}
@@ -239,9 +246,7 @@ class Evaluate_Clonotype():
         tx2 = ax2.twinx() # hack to get matching ticks on the right
         sns.boxplot(**ARGS, **PROPS, order=order, ax=ax2)
         sns.stripplot(data=self.plt_df, x="umi", y='peptide_HLA_lst', ax=ax2, order=order, jitter=0.2, edgecolor='white',linewidth=0.5, size=6)
-        #sns.boxplot(**ARGS, **PROPS, ax=ax2, order=order) #, order=order
         sns.boxplot(**ARGS, **EMPTY, order=order, ax=tx2)
-        #sns.scatterplot(data=self.plt_df, x="umi", y="y", hue='peptide_HLA_lst', legend=False, ax=ax2)
 
         # Add significance bar
         if self.test_dist():
@@ -259,15 +264,15 @@ class Evaluate_Clonotype():
         # Add concordance plot
         #########################################
         # Hack to get colorbar
-        plot = ax3.scatter([np.nan]*len(order), order, c=[np.nan]*len(order), cmap='viridis_r', vmin=0, vmax=1) #[],[] #order[::-1]
+        plot = ax3.scatter([np.nan]*len(order), order, c=[np.nan]*len(order), cmap='viridis_r', vmin=0, vmax=1)
         fig.colorbar(plot, ax=ax3)
         sns.scatterplot(data=self.conc_df, x='clonotype', y='peptide_HLA_lst',
-                        size='gem', hue='concordance', hue_norm=(0,1), palette='viridis_r', ax=ax3) #g = 
+                        size='gem', hue='concordance', hue_norm=(0,1), palette='viridis_r', ax=ax3)
 
         # Remove automatic sns legend for hue, keep only legend for size.
         h,l = ax3.get_legend_handles_labels()
         h,l = get_legend_n_handle(l, h, key='gem')
-        ax3.legend(h, l, bbox_to_anchor=(1.5, 0.5), loc=6, frameon=False, title='GEM') #h[-4:], l[-4:]
+        ax3.legend(h, l, bbox_to_anchor=(1.5, 0.5), loc=6, frameon=False, title='GEM')
 
         ######################################
         # Prettify
@@ -303,7 +308,7 @@ class Evaluate_Clonotype():
         sns.despine(trim=True, right=False, ax=tx1)
         sns.despine(trim=True, right=False, ax=ax2)
         sns.despine(trim=True, right=False, ax=tx2)
-        sns.despine(trim=True, left=True, ax=ax3) #offset={'left':-5,'right':-5}
+        sns.despine(trim=True, left=True, ax=ax3)
 
         plt.savefig(figname %(self.fig_flg, self.ct), bbox_inches='tight')
         plt.show()
@@ -319,50 +324,17 @@ class Evaluate_Clonotype():
         p1 = self.summary_df.index[0]
         p2 = self.summary_df.index[1]
         # Extract the UMI distribution for the two selected peptides.
-        s1 = self.selected_mat.T[p1]#.fillna(0)
-        s2 = self.selected_mat.T[p2]#.fillna(0)
+        s1 = self.selected_mat.T[p1]
+        s2 = self.selected_mat.T[p2]
         
         if sum(s1.fillna(0)-s2.fillna(0)) == 0:
             return False
         
         w, p = stats.wilcoxon(s1.fillna(0)-s2.fillna(0), alternative='greater')
-        #u, p = stats.mannwhitneyu(s1, s2, alternative="greater") #, method="exact"
         
         if p <= 0.05:
             return True
         return False
-        
-    #def test_dist(self):
-    #    """
-    #    H0: No difference in UMI counts between the top two peptides
-    #    H1: Top peptide has more UMI counts
-    #
-    #    If H1, then we assume that the clonotype has a clear preference for that peptide.
-    #    """
-    #    # Select the peptides to test: the most abundant and the second most abundant (UMI wise)
-    #    p1 = self.summary_df.index[0]
-    #    p2 = self.summary_df.index[1]
-    #    # Extract the UMI distribution for the two selected peptides.
-    #    s1 = self.mat.T[p1].dropna().to_list()
-    #    s2 = self.mat.T[p2].dropna().to_list()
-    #    # If fewer than 5 observations for any of the peptides, then assume H0
-    #    n = min(len(s1), len(s2))
-    #    if n < 5:
-    #        return False
-    #
-    #    # Repeat experiment XX times to get more robust selection.
-    #    p_list = list()
-    #    for _ in range(50):
-    #        l1 = sample(s1, n)
-    #        l2 = sample(s2, n)
-    #
-    #        t, p = stats.ttest_ind(l1, l2, equal_var=False, alternative='greater')
-    #
-    #        p_list.append(p)
-    #
-    #    if np.median(p_list) <= 0.05:
-    #        return True
-    #    return False
     
     def get_imputed_query(self):
         return self.summary_df.index[0]
@@ -383,11 +355,19 @@ class Evaluate_Clonotype():
 #########################################################################################################
 #                                                 Input                                                 #
 #########################################################################################################
-INPUT = snakemake.input[0]
-HASHING = snakemake.input[1]
-OUTPUT = snakemake.output[0]
-PLOT = snakemake.params[0] # Cannot use output, since I don't know which clonotypes will be significant
-# PLOT = some_dir/%s/%d.pdf
+try:
+    INPUT = snakemake.input.data
+    HASHING = snakemake.input.barcodes
+    OUTPUT = snakemake.output.data
+    PLOT = snakemake.params.plots
+except:
+    parser = get_argparser()
+    args = parser.parse_args()
+    
+    INPUT = args.input
+    HASHING = args.barcodes
+    OUTPUT = args.output
+    PLOT = args.plots
 
 ########################################################################################################
 #                                                 Load                                                 #
@@ -414,18 +394,12 @@ else:
 
 selected_clonotypes = df.groupby('ct').size()
 selected_clonotypes = selected_clonotypes[selected_clonotypes >= 10] # OBS!
-print('Number of clonotypes to test:', len(selected_clonotypes))
-print(selected_clonotypes)
 
 for ct, size in selected_clonotypes.items():
-    print(ct, size)
     for variable, imp_var in zip(variables, imp_vars):
-        #print(df[df.ct == ct].sample_id)
-        #print(df[df.ct == ct].sample_id_lst)
         inst = Evaluate_Clonotype(df, ct, selected_clonotypes, variable=variable)
         inst.sum_umi()
         inst.calc_summary()
-        #df.loc[instance.idx, 'umi_count_mhc_rel'] = instance.calc_relative_umi()
         inst.select_queries()
         inst.transform_data_for_plotting()
         inst.add_gem_count()
@@ -434,7 +408,6 @@ for ct, size in selected_clonotypes.items():
         inst.update_variable_analysis()
 
         if inst.test_dist():
-            print(f'significant {variable}')
             df.loc[inst.idx, imp_var] = inst.get_imputed_query()
             
             if variable == 'peptide_HLA':
@@ -447,22 +420,12 @@ for ct, size in selected_clonotypes.items():
             inst.update_flag('significant_match')
         else:
             inst.update_flag('significant_mismatch')
-        print(f'{ct} is credible')
     else:
         inst.update_flag('insignificant')
        
     ########################################################################################################
     #                                                 Plot                                                 #
     ########################################################################################################
-    #try:
-    #if variable == 'peptide_HLA'
-    #    inst.plot_advanced_figure('../lol_%s_%s.png') #../experiments/exp13/run2/plt/eval_clonotypes/significant/
-    #except:
-    #    print('not plottet')
-    #finally:
-    #    plt.close()
-    #    plt.clf()
-    
     if no_hashing:
         fig, ax1 = plt.subplots(1,1) #, figsize=(7,7)
         # pMHC
@@ -474,7 +437,6 @@ for ct, size in selected_clonotypes.items():
         sns.despine(trim=True, ax=ax1)
         
         fig.suptitle(f'Clonotype {inst.ct} ({size} GEMs)')
-        #plt.show()
         fig.savefig(PLOT %(inst.fig_flg, inst.ct), bbox_inches='tight')
         plt.close()
         plt.clf()
@@ -495,8 +457,6 @@ for ct, size in selected_clonotypes.items():
         sns.stripplot(**ARGS, jitter=0.2, edgecolor='white',linewidth=0.5, size=6)
         ax3.set_title('Sample ID')
         sns.despine(trim=True, ax=ax3)
-        #sns.scatterplot(**ARGS, x='gem')
-        #sns.scatterplot(data=smpl.plt_df, x="gem", y='sample_id', size='umi', ax=ax1, legend='brief') #hue='sample_id', 
 
         # Hashing
         ARGS = {'x':"umi", 'y':"HLA_pool_cd8", 'data':Evaluate_Clonotype.ct_checks['HLA_cd8'], 'ax':ax2}
@@ -506,7 +466,6 @@ for ct, size in selected_clonotypes.items():
         sns.despine(trim=True, ax=ax2)
 
         fig.suptitle(f'Clonotype {inst.ct} ({size} GEMs)')
-        #plt.show()
         fig.savefig(PLOT %(inst.fig_flg, inst.ct), bbox_inches='tight')
         plt.close()
         plt.clf()
@@ -548,7 +507,6 @@ def determine_ct_match_by_HLA_conc(row):
 def determine_train_label(row):
     if any((notnan(row.pep_match), notnan(row.hla_match), notnan(row.ct_match))):
         return (row.pep_match == True) & (row.hla_match == True) & (row.ct_match == True)
-        #return (row.pep_match != False) & (row.hla_match != False) & (row.ct_match != False)
     else:
         return np.nan
     
@@ -587,9 +545,6 @@ except AttributeError:
     # A TP within the trainset requires a significance and concordance of pMHC and sHLA
     df['train_label'] = df.apply(lambda row: determine_train_label(row), axis=1)
     df['test_label'] = df.apply(lambda row: determine_test_label(row), axis=1)
+    
 df.to_csv(OUTPUT, index=False)
-
-#valid_df = df[df.ct.isin(Evaluate_Clonotype.value_bin)].fillna(0)
-#valid_df.to_csv(OUTPUT, index=False)
-#df.to_csv('/home/tuba/herpov/tcr-pmhc-sc-project/experiments/exp13/run2/cat/tables/tcr_barcode.cleaned.valid_ct.csv', index=False)
 

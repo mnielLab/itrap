@@ -17,7 +17,7 @@ TARGET['plot_thr_impact'] = expand(PLT_DIRECTORY + "/eval_filters/{filtering_set
 #                        GLOBAL variables                       #
 #################################################################
 # OBS! This range is heuristic. May require changes.
-init_dct = {str(k):v for k,v in enumerate(2**np.linspace(-0.4,3,50))} # delta umi mhc
+thr_conv_dct = {str(k):v for k,v in enumerate(2**np.linspace(-0.4,3,50))} # delta umi mhc
 
 # Number of times to sample TCRs for similarity scores.
 random_sample=1 #np.arange(30)
@@ -32,30 +32,17 @@ rule eval_clonotypes:
     Plots barcode distribution for clonotypes with more than 10 GEMs.
     """
     input:
-        CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv",
-        LIB_DIRECTORY + '/barcode_specificity_annotations.xlsx'
+        data = CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv",
+        barcodes = LIB_DIRECTORY + '/barcode_specificity_annotations.xlsx'
     params:
-        PLT_DIRECTORY + "/eval_clonotypes/%s/%d.pdf"
+        plots = PLT_DIRECTORY + "/eval_clonotypes/%s/%d.pdf"
     output:
-        CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv",
-        touch(expand(PLT_DIRECTORY + "/eval_clonotypes/{flag}/dir.done",flag=['significant_match','significant_mismatch','insignificant']))
+        data = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv",
+        done = touch(expand(PLT_DIRECTORY + "/eval_clonotypes/{flag}/dir.done",flag=['significant_match','significant_mismatch','insignificant']))
     conda:
         "../envs/basic_dependencies.yaml"
     script:
         "../../scripts/F_comp_cred_specificities.py"
-
-
-rule get_minimum_threshold:
-    """
-    Plot barcode UMI distributions.
-    """
-    input:
-        data = CAT_DIRECTORY + "/tables/tcr_barcode.csv"
-    output:
-        thrs = CAT_DIRECTORY + "/eval_clonotypes/threshold_min.csv",
-        plot = expand(PLT_DIRECTORY + "/eval_clonotypes/opt_thr/min_thr.{tp}.pdf", tp=['brc','tcr'])
-    script:
-        "../../scripts/plot_bc_umi_dist_against_bg.py"
 
 
 rule grid_search:
@@ -63,28 +50,27 @@ rule grid_search:
     Run grid search on UMI values to define optimal set of thresholds.
     """
     input:
-        original = CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv",
         valid_df = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv"
     params:
-        lambda wildcards: init_dct[wildcards.random_init]
+        ext_thr = lambda wildcards: thr_conv_dct[wildcards.external_threshold]
     output:
-        CAT_DIRECTORY + "/eval_clonotypes/grid_search/{random_init}.csv"
+        grid = CAT_DIRECTORY + "/eval_clonotypes/grid_search/{external_threshold}.csv"
     script:
-        "../../scripts/extract_concordance_table.py"
+        "../../scripts/G1_grid_search.py"
 
 
-rule plot_grid:
+rule extract_optimal_threshold:
     """
-    Plot grid and mark optimal thresholds.
+    Plot grid and extract optimal thresholds.
     """
     input:
         valid = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv",
-        grids = expand(CAT_DIRECTORY + "/eval_clonotypes/grid_search/{random_init}.csv", random_init=init_dct.keys())
+        grids = expand(CAT_DIRECTORY + "/eval_clonotypes/grid_search/{external_threshold}.csv", external_threshold=thr_conv_dct.keys())
     output:
         plots = expand(PLT_DIRECTORY + "/eval_clonotypes/grid_search/opt_thr/grid.{ext}", ext=["pdf", "png"]),
-        table = CAT_DIRECTORY + "/eval_clonotypes/threshold/opt.csv"
+        opt_thr = CAT_DIRECTORY + "/eval_clonotypes/threshold/opt.csv"
     script:
-        "../../scripts/plot_grid.py"
+        "../../scripts/G2_extract_optimal_threshold.py"
 
 
 rule plot_thr_specificity_matrix:
@@ -341,8 +327,6 @@ rule plot_thr_similarity:
         score_pooled = PLT_DIRECTORY + "/eval_clonotypes/similarity/{filtering_set}/score_pooled.png",
         auc = PLT_DIRECTORY + "/eval_clonotypes/similarity/{filtering_set}/auc.png",
         roc = PLT_DIRECTORY + "/eval_clonotypes/similarity/{filtering_set}/roc.png",
-    #priority:
-    #90
     conda:
         "../envs/basic_dependencies.yaml"
     script:
@@ -350,28 +334,27 @@ rule plot_thr_similarity:
         
 rule get_filters:
     input:
-        opt_thr = CAT_DIRECTORY + "/eval_clonotypes/threshold/opt.csv", #opt {thrs_vals}
-        valid = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv",
-        gex = CAT_DIRECTORY + "/eval_clonotypes/threshold/gex.txt"
+        opt_thr = CAT_DIRECTORY + "/eval_clonotypes/threshold/opt.csv",
+        valid = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv"
     params:
         flt = '{filtering_set}'
     output:
-        flt = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.yaml",
-        idx = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.csv"
+        lbl = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.yaml",
+        flt = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.csv"
     script:
         "../../scripts/H_set_filters.py"
         
 rule filter_impact_staircase:
     input:
         df = CAT_DIRECTORY + "/eval_clonotypes/valid_ct.csv",
-        flt = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.yaml",
-        idx = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.csv"
+        lbl = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.yaml",
+        flt = CAT_DIRECTORY + "/eval_clonotypes/threshold/{filtering_set}.csv"
     output:
         touch(PLT_DIRECTORY + "/specificity_matrix/peptide_per_clonotype_by_gem_size/{filtering_set}/plots.done")
     conda:
         "../envs/basic_dependencies.yaml"
     script:
-        "../../scripts/filtering_impact.staircase.py"
+        "../../scripts/I_filter_impact.staircase.py"
         
 rule filter_impact_bar:
     input:

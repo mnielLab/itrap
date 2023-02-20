@@ -5,7 +5,7 @@ import yaml
 
 """
 Run pipeline from location of the Snakefile:
-snakemake -s Snakefile --configfile config/config.13.yaml --config run=1 --cores 4 --use-conda
+snakemake -s Snakefile --configfile config/config.13.yaml --config run=run1 --cores 4 --use-conda
 """
 
 print(config['run'])

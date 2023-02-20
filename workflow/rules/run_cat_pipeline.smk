@@ -42,7 +42,7 @@ rule parse_count_matrix:
     conda:
         "../envs/basic_dependencies.yaml"
     script:
-        "../../scripts/parse_count_matrix.py"
+        "../../scripts/A_parse_count_matrix.py"
         
 rule parse_count_matrix_2:
     """
@@ -66,7 +66,7 @@ rule parse_count_matrix_2:
     conda:
         "../envs/basic_dependencies.yaml"
     script:
-        "../../scripts/parse_count_matrix.py"
+        "../../scripts/A_parse_count_matrix.py"
         
 rule parse_count_matrix_3:
     """
@@ -90,7 +90,7 @@ rule parse_count_matrix_3:
     conda:
         "../envs/basic_dependencies.yaml"
     script:
-        "../../scripts/parse_count_matrix.py"
+        "../../scripts/A_parse_count_matrix.py"
 
 #################################################################
 #                     Merge Barcodes and TCR                    #
@@ -101,10 +101,10 @@ rule comb_barcodes_TCR:
     Merge barcode and TCR data based on GEM barcode.
     """
     input:
-        TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv",
-        MHC_DIRECTORY + "/count/brc.augmented.csv"
+        tcr = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv",
+        brc = MHC_DIRECTORY + "/count/brc.augmented.csv"
     output:
-        CAT_DIRECTORY + "/tables/tcr_barcode.csv"
+        cat = CAT_DIRECTORY + "/tables/tcr_barcode.csv"
     script:
         "../../scripts/C_comb_barcodes_TCR.py"
         
@@ -113,19 +113,17 @@ rule prep_seurat_HTO_analysis:
     Convert count matrix to RDS format for Seurat analysis.
     """
     input:
-        df = CAT_DIRECTORY + "/tables/tcr_barcode.csv",
-        hto = LIB_DIRECTORY + '/barcode_specificity_annotations.xlsx',
+        df = TCR_DIRECTORY + "/augmented/tcr.clean.augmented.csv",
+        hto = LIB_DIRECTORY + "/barcode_specificity_annotations.xlsx",
         brc = MHC_DIRECTORY + "/count/features.10x.tsv.gz",
         gem = MHC_DIRECTORY + "/count/barcodes.10x.tsv.gz",
         mtx = MHC_DIRECTORY + "/count/matrix.10x.mtx.gz"
-    params:
-        CAT_DIRECTORY + "/tables/hto_prep.done"
     output:
         temp(CAT_DIRECTORY + "/tables/hto_count_matrix.rds")
     conda:
         "../envs/prep_seurat.yaml"
     script:
-        "../../scripts/C1_prep_seurat-Copy1.py"
+        "../../scripts/B1_seurat_hto_prep.py"
 
 ruleorder: seurat_HTO_analysis > no_seurat_HTO_analysis
 
@@ -134,8 +132,7 @@ rule seurat_HTO_analysis:
     Analyze cell hashing barcodes with Seurat HTO method.
     """
     input:
-        CAT_DIRECTORY + "/tables/hto_count_matrix.rds",
-        CAT_DIRECTORY + "/tables/hto_prep.done"
+        CAT_DIRECTORY + "/tables/hto_count_matrix.rds"
     output:
         out_file = CAT_DIRECTORY + "/tables/hto.csv",
         ridge_plot = PLT_DIRECTORY + "/HTO/ridgeplot.png",
@@ -144,7 +141,7 @@ rule seurat_HTO_analysis:
     conda:
         "../envs/seurat_hto.yaml"
     shell:
-        "Rscript ./scripts/seurat_HTO_analysis.R {input} {output.out_file} {output.ridge_plot} {output.violin_plot} {output.heatmap}"
+        "Rscript ./scripts/B2_seurat_hto_analysis.R {input} {output.out_file} {output.ridge_plot} {output.violin_plot} {output.heatmap}"
  
 rule no_seurat_HTO_analysis:
     """
@@ -159,7 +156,7 @@ rule no_seurat_HTO_analysis:
                                    'hto_margin','hto_classification','hto_global_class','hash_id'])
         df.to_csv(output.out_file, index=False)
 
-rule clean_tcr_barcodes:
+rule augment_tcr_barcodes:
     """
     Merge HTO analysis with main data.
     Calculate binding concordance.
@@ -168,12 +165,13 @@ rule clean_tcr_barcodes:
     input:
         dat = CAT_DIRECTORY + "/tables/tcr_barcode.csv",
         vdj = WRK_DIR + "/tools/VDJdb.csv",
-        hto = CAT_DIRECTORY + "/tables/hto.csv"
+        hto = CAT_DIRECTORY + "/tables/hto.csv",
+        gex = CAT_DIRECTORY + "/eval_clonotypes/threshold/gex.txt"
     params:
-        TCR_DIRECTORY + "/library/clone_rearrangement.tsv"
+        "tools/clone_rearrangement.tsv"
     output:
         CAT_DIRECTORY + "/tables/tcr_barcode.cleaned.csv",
         CAT_DIRECTORY + "/reports/gems/gem_counts.json"
     script:
-        "../../scripts/D_clean_tcr_barcodes.py"
+        "../../scripts/D_augment_tcr_barcodes.py"
         

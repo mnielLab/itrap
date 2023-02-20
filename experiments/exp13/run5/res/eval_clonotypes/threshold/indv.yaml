@@ -1,0 +1,16 @@
+labels:
+- total
+- optimal threshold
+- matching HLA
+- complete TCRs
+- specificity multiplets
+- is cell (GEX)
+- is viable cell
+palette:
+- grey
+- yellow
+- '#ffffcc'
+- '#7fcdbb'
+- '#41b6c4'
+- '#2c7fb8'
+- black
