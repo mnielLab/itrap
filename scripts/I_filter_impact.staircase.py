@@ -155,7 +155,7 @@ except:
     VALID = args.data
     FLT = args.labels
     IDX = args.filters
-    OUT_DIR = os.path.dirname(args.out_dir)
+    OUT_DIR = args.out_dir
 
 
 df = pd.read_csv(VALID, converters=converters)

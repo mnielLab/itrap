@@ -86,9 +86,9 @@ value_bin = df[~df.ct_pep.isna()].ct.unique() # sign. peptides
 
 # Set range of thresholds
 umi_count_TRA_l = np.arange(0, df.umi_count_TRA.quantile(0.4, interpolation='higher'))
-delta_umi_TRA_l = 2**np.linspace(-0.4,1.5,10)
+delta_umi_TRA_l = np.arange(0, 4) #2**np.linspace(-0.4,1.5,10)
 umi_count_TRB_l = np.arange(0, df.umi_count_TRB.quantile(0.4, interpolation='higher'))
-delta_umi_TRB_l = 2**np.linspace(-0.4,1.5,10)
+delta_umi_TRB_l = np.arange(0, 4) #2**np.linspace(-0.4,1.5,10)
 umi_count_mhc_l = np.arange(1, df.umi_count_mhc.quantile(0.5, interpolation='higher'))
 delta_umi_mhc_l = [D_UMI_MHC]
 umi_relat_mhc_l = [0] #[D_UMI_MHC/10000]
@@ -160,7 +160,7 @@ for uca in umi_count_TRA_l:
                             table.loc[i] = (acc, n_mat, n_mis,
                                             g_trash, g_ratio, t_trash, t_ratio,
                                             conc, ucm, urm, dum, uca, dua, ucb, dub,
-                                            G_trash, G_ratio, T_trash, T_ratio) #uca, dua, 
+                                            G_trash, G_ratio, T_trash, T_ratio)
 
                             if i % 1000 == 0:
                                 print(f'{round(i/observations * 100, 2)}% done')

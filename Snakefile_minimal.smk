@@ -21,7 +21,7 @@ PLT_DIR = os.path.join(EXP_DIR, "plt")
 
 
 rule all:
-    input: expand(PLT_DIR + "/specificity_matrix/{filtering_set}/plots.done", filtering_set=['indv','comb']),
+    input: 'done.ok' #expand(PLT_DIR + "/specificity_matrix/{filtering_set}/total.png", filtering_set=['indv','comb']),
 
 #################################################################
 #                         TCR clonotypes                        #
@@ -231,10 +231,11 @@ rule grid_search:
     input:
         valid_df = rules.eval_clonotypes.output.data
     output:
-        grid = RES_DIR + "/eval_clonotypes/grid_search/0.csv"
+        grid = RES_DIR + "/eval_clonotypes/grid_search/{ext_thr}.csv"
     shell:
         "python scripts/G1_grid_search.py \
             --input {input.valid_df} \
+            --ext_thr {wildcards.ext_thr} \
             --output {output.grid}"
 
 
@@ -244,7 +245,7 @@ rule extract_optimal_threshold:
     """
     input:
         valid = rules.eval_clonotypes.output.data,
-        grids = rules.grid_search.output.grid
+        grids = expand(rules.grid_search.output.grid, ext_thr=[0,1,2])
     output:
         plots = expand(PLT_DIR + "/eval_clonotypes/grid_search/grid.{ext}", ext=["pdf", "png"]),
         opt_thr = RES_DIR + "/eval_clonotypes/threshold/opt.csv"
@@ -281,10 +282,10 @@ rule filter_impact_staircase:
         df = rules.eval_clonotypes.output.data,
         lbl = rules.get_filters.output.lbl,
         flt = rules.get_filters.output.flt
-    params:
-        PLT_DIR + "/specificity_matrix/{filtering_set}"
     output:
-        touch(PLT_DIR + "/specificity_matrix/{filtering_set}/plots.done")
+        png = PLT_DIR + "/specificity_matrix/{filtering_set}/total.png"
+    params:
+        lambda wildcards, output: os.path.dirname(output.png)
     conda:
         "workflow/envs/basic_dependencies.yaml"
     shell:
@@ -293,3 +294,10 @@ rule filter_impact_staircase:
             --labels {input.lbl} \
             --filters {input.flt} \
             --out-dir {params}"
+        
+rule ok:
+    input:
+        fn = expand(rules.filter_impact_staircase.output.png, filtering_set=['indv','comb'])
+    output:
+        tag = touch('done.ok')
+    
