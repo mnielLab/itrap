@@ -15,10 +15,10 @@ scripts/G1_grid_search.py
 scripts/G2_extract_optimal_threshold.py
 scripts/H_set_filters.py
 scripts/I_filter_impact.staircase.py
-experiments/exp13/run1/tcr/cellranger_tot/outs/multi/count/feature_reference.csv
-experiments/exp13/run1/tcr/cellranger_tot/outs/multi/count/raw_feature_bc_matrix
-experiments/exp13/run1/tcr/cellranger_tot/outs/multi/count/raw_feature_bc_matrix.h5
-experiments/exp13/run1/tcr/cellranger_tot/outs/multi/vdj_t/all_contig_annotations.csv
-experiments/exp13/run1/tcr/cellranger_tot/outs/vdj_reference/reference.json
-experiments/exp13/run1/tcr/cellranger_tot/outs/per_sample_outs/cellranger_tot/vdj_t/consensus_annotations.csv
+experiments/exp13/run1/tcr/cellranger_pos/outs/multi/count/feature_reference.csv
+experiments/exp13/run1/tcr/cellranger_pos/outs/multi/count/raw_feature_bc_matrix
+experiments/exp13/run1/tcr/cellranger_pos/outs/multi/count/raw_feature_bc_matrix.h5
+experiments/exp13/run1/tcr/cellranger_pos/outs/multi/vdj_t/all_contig_annotations.csv
+experiments/exp13/run1/tcr/cellranger_pos/outs/vdj_reference/reference.json
+experiments/exp13/run1/tcr/cellranger_pos/outs/per_sample_outs/cellranger_tot/vdj_t/consensus_annotations.csv
 barcode_specificity_annotations.xlsx
