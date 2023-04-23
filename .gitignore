@@ -22,8 +22,11 @@ experiments/**/tcr
 experiments/**/brc
 experiments/**/raw
 experiments/**/mhc
+experiments/**/res
+experiments/**/done.ok
 
 experiments/exp13/run1_archive
 experiments/exp13/run2_archive
+experiments/exp13/run1/tcr_a
 experiments/exp13/run3
 experiments/exp15
