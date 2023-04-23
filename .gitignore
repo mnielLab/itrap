@@ -12,6 +12,7 @@ notebooks/tmp_files
 notebooks/*.png
 notebooks/*.csv
 **/.Rhistory
+**/Rplots.pdf
 **/.snakemake
 *test*e
 **/._*
@@ -30,3 +31,5 @@ experiments/exp13/run2_archive
 experiments/exp13/run1/tcr_a
 experiments/exp13/run3
 experiments/exp15
+
+tools/tcr_db*
