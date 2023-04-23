@@ -138,13 +138,13 @@ optimal_thresholds = (grid
 opt_thr_idx = optimal_thresholds.tail(1).index[0]
 
 # Get threshold values
-opt_thr = optimal_thresholds.loc[opt_thr_idx, ['umi_count_mhc','delta_umi_mhc', 'umi_count_mhc_rel',
-                                               'umi_count_cd8','delta_umi_cd8',
+opt_thr = optimal_thresholds.loc[opt_thr_idx, ['umi_count_mhc','delta_umi_mhc', #'umi_count_mhc_rel',
+                                               #'umi_count_cd8','delta_umi_cd8',
                                                'umi_count_TRA','delta_umi_TRA',
                                                'umi_count_TRB','delta_umi_TRB']]
 
 
-opt_thr.to_csv(THRESHOLD)
+opt_thr.to_csv(THRESHOLD, header=None)
 plot_grid(grid, opt_thr_idx, PLOT)
 
 

@@ -38,3 +38,7 @@ The pipeline expects outputs from Cellranger:
 - Cellranger v6.1.1 used in iTRAP development (https://support.10xgenomics.com/single-cell-vdj/software/pipelines/latest/installation)
 - VDJ reference: refdata-cellranger-vdj-GRCh38-alts-ensembl-5.0.0 (download from 10x)
 - GEX reference: refdata-gex-GRCh38-2020-A/ (download from 10x)
+
+If applying the provided test data, unpack it in the directory of this file.
+
+The pipeline expects database of TCR-pMHC annotated sequences, which is stored in tools/tcr_dbs.csv.gz.
