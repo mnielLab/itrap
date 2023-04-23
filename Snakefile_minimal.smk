@@ -11,8 +11,8 @@ Input:
 """
 import os
 
-EXPERIMENTAL_DESIGN_TEMPLATE = "experiments/exp13/run3/lib/barcode_specificity_annotations.xlsx"
-CELLRANGER_DIR = "experiments/exp13/run3/tcr/cellranger_tot"
+EXPERIMENTAL_DESIGN_TEMPLATE = "experiments/exp13/run1/lib/barcode_specificity_annotations.xlsx"
+CELLRANGER_DIR = "experiments/exp13/run1/tcr/cellranger_pos"
 
 WRK_DIR = workflow.basedir
 EXP_DIR = os.path.join(WRK_DIR, "experiments", config["exp"], config["run"])
@@ -21,7 +21,7 @@ PLT_DIR = os.path.join(EXP_DIR, "plt")
 
 
 rule all:
-    input: 'done.ok' #expand(PLT_DIR + "/specificity_matrix/{filtering_set}/total.png", filtering_set=['indv','comb']),
+    input: EXP_DIR + '/done.ok'
 
 #################################################################
 #                         TCR clonotypes                        #
@@ -37,7 +37,7 @@ rule clean_augment_tcr:
     input:
         contig = CELLRANGER_DIR + "/outs/multi/vdj_t/all_contig_annotations.csv"
     params:
-        clonot = CELLRANGER_DIR + "/outs/per_sample_outs/cellranger_tot/vdj_t/consensus_annotations.csv"
+        clonot = CELLRANGER_DIR + "/outs/per_sample_outs/cellranger_pos/vdj_t/consensus_annotations.csv"
     output:
         output = RES_DIR + "/tables/tcr.clean.augmented.csv"
     conda:
@@ -185,7 +185,7 @@ rule augment_tcr_barcodes:
     """
     input:
         dat = rules.comb_barcodes_TCR.output.cat,
-        vdj = WRK_DIR + "/tools/tcr_db.csv",
+        vdj = WRK_DIR + "/tools/tcr_db.csv.gz",
         hto = RES_DIR + "/tables/hto.csv",
         gex = RES_DIR + "/tables/gex.txt"
     output:
@@ -299,5 +299,5 @@ rule ok:
     input:
         fn = expand(rules.filter_impact_staircase.output.png, filtering_set=['indv','comb'])
     output:
-        tag = touch('done.ok')
+        tag = touch(EXP_DIR + '/done.ok')
     
