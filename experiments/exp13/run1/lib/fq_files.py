@@ -30,7 +30,7 @@ pos_mrk = "" # Surface/feature marker label
 neg_mrk = "" # Surface/feature marker label
 
 pos_gex = "EXP13_1OS-SCI7T013-SCI5T013_H22JHDSX3"
-neg_gex = ""
+neg_gex = "EXP13_1OS-SCI7T013-SCI5T013_H22JHDSX3"
 
 mhc_custom = False
 hsh_custom = False
