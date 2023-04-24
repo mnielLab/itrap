@@ -1,7 +1,7 @@
 
 """
 Run pipeline from location of the Snakefile:
-snakemake -s Snakefile_minimal.smk --config exp=exp13 run=run1 --cores 4 --use-conda
+snakemake --config exp=exp13 run=run1 --cores 4 --use-conda
 
 Pipeline requires:
 Input:
