@@ -41,7 +41,7 @@ rule clean_augment_tcr:
     output:
         output = RES_DIR + "/tables/tcr.clean.augmented.csv"
     conda:
-        "workflow/envs/basic_dependencies.yaml"
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/A_clean_augment_tcr.py \
             --contig {input.contig} \
@@ -67,7 +67,7 @@ rule parse_count_matrix:
     output:
         RES_DIR + "/tables/brc.augmented.csv"
     conda:
-        "workflow/envs/basic_dependencies.yaml"
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/A_parse_count_matrix.py \
             --features {input.brc} \
@@ -95,7 +95,7 @@ rule filter_gex_data:
         PLT_DIR + "/GEX/filtering/violin.png",
         PLT_DIR + "/GEX/filtering/scatter.png"
     conda:
-        "workflow/envs/seurat_gex_filtering.yaml"
+        "envs/seurat_gex_filtering.yaml"
     shell:
         "Rscript ./scripts/B0_seurat_gex_analysis.R {input} {output}"
         
@@ -121,7 +121,7 @@ rule prep_seurat_HTO_analysis:
     output:
         rds = temp(RES_DIR + "/tables/hto_count_matrix.rds")
     conda:
-        "workflow/envs/prep_seurat.yaml"
+        "envs/prep_seurat.yaml"
     script:
         "scripts/B1_seurat_hto_prep.py"
 
@@ -139,7 +139,7 @@ rule seurat_HTO_analysis:
         violin_plot = PLT_DIR + "/HTO/violinplot.png",
         heatmap = PLT_DIR + "/HTO/heatmap.png"
     conda:
-        "workflow/envs/seurat_hto.yaml"
+        "envs/seurat_hto.yaml"
     shell:
         "Rscript ./scripts/B2_seurat_hto_analysis.R \
             {input} \
@@ -215,7 +215,7 @@ rule eval_clonotypes:
         data = RES_DIR + "/tables/tcr_barcode.valid.csv",
         done = touch(expand(PLT_DIR + "/eval_clonotypes/{flag}/dir.done", flag=['significant_match','significant_mismatch','insignificant']))
     conda:
-        "workflow/envs/basic_dependencies.yaml"
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/F_comp_cred_specificities.py \
             --input {input.data} \
@@ -287,7 +287,7 @@ rule filter_impact_staircase:
     params:
         lambda wildcards, output: os.path.dirname(output.png)
     conda:
-        "workflow/envs/basic_dependencies.yaml"
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/I_filter_impact.staircase.py \
             --data {input.df} \
