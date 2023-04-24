@@ -1,0 +1,4 @@
+channels:
+  - local
+dependencies:
+  - ipynb=0.5.1
