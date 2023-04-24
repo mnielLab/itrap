@@ -1,0 +1,12 @@
+channels:
+ - conda-forge
+ - r
+ - bioconda
+dependencies:
+ - r-seurat
+ - r-r.utils
+ - r-ggplot2
+ # - R.utils
+ # - Seurat
+ # - r=3.6.1
+ # - 'https://repo.continuum.io/pkgs/free'

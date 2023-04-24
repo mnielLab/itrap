@@ -1,0 +1,12 @@
+channels:
+  - conda-forge
+  - conda
+  - bioconda
+dependencies:
+  - pandas = 1.3.3
+  - numpy = 1.19.2
+  - matplotlib = 3.0.3 #3.3.4 #
+  - seaborn = 0.11.2 #0.10.1 #
+  - openpyxl = 3.0.7
+  - numexpr = 2.7.3
+  - pyyaml = 5.1
