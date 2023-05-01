@@ -4,7 +4,7 @@ This repository contains the code to identify ITRAP filters for single-cell immu
 ## License 
 ITRAP is developed by Morten Nielsen's group at the Technical University of Denmark (DTU).
 ITRAP code and data can be used freely by academic groups for non-commercial purposes.
-If you plan to use NetTCR or any data provided with the script in any for-profit application, you are required to obtain a separate license (contact Morten Nielsen, morni@dtu.dk). 
+If you plan to use ITRAP or any data provided with the script in any for-profit application, you are required to obtain a separate license (contact Morten Nielsen, morni@dtu.dk). 
 
 For scientific questions, please contact Morten Nielsen (mniel@dtu.dk).
 
