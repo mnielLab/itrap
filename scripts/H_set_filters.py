@@ -87,9 +87,10 @@ df.fillna({'umi_count_mhc':0, 'delta_umi_mhc':0, "umi_count_mhc_rel":0,
            'umi_count_TRB':0, 'delta_umi_TRB':0}, inplace=True)
 
 # Add extra features
-df.single_barcode_mhc = np.where(df.single_barcode_mhc, 'pMHC singlet','pMHC multiplet')
+df.single_barcode_mhc = np.where(df.peptide_HLA_lst.apply(len) > 1, 'pMHC singlet','pMHC multiplet')
 df['clonotype_multiplet'] = df.ct.map(df.groupby('ct').size() > 1)
 df['HLA_match_per_gem'] = df.apply(lambda row: row.HLA_mhc in row.HLA_cd8 if row.HLA_cd8 == row.HLA_cd8 else False, axis=1)
+df['complete_tcrs'] = df.cdr3_TRA.notna() & df.cdr3_TRB.notna()
 
 
 ##########################################################
@@ -107,7 +108,7 @@ idx0 = ~df.gem.isna()
 idx1 = eval(' & '.join([f'(df.{k} >= {abs(v)})' for k,v in opt_thr.items()]))
 idx2 = df.hto_global_class == 'Singlet'
 idx3 = df.apply(lambda row: row.peptide_HLA.split()[-1] in row.HLA_cd8 if (notnan(row.peptide_HLA) & notnan(row.HLA_cd8)) else False, axis=1)
-idx4 = df['exclude_single-chain_TCRs']
+idx4 = df['complete_tcrs'] #exclude_single-chain_TCRs
 idx5 = get_multiplets(df)
 try:
     idx6 = df.cell_flag # is_cell

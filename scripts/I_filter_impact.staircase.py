@@ -73,11 +73,17 @@ def calc_binding_concordance(df, clonotype_fmt):
     df['hla_concordance']       = df.hla_concordance.fillna(0)
     return df
 
+
 def plot_specificity(title, df, max_gems, save=True):
     # Sort
     df.ct = df.ct.astype(int).astype(str)
-    df.sort_values(by=['epitope_rank','gems_per_specificity','binding_concordance'],
-                       ascending=[True, False, False], inplace=True)
+    
+    try:
+        df.sort_values(by=['epitope_rank','gems_per_specificity','binding_concordance'],
+                           ascending=[True, False, False], inplace=True)
+    except KeyError:
+        df.sort_values(by=['gems_per_specificity','binding_concordance'],
+                           ascending=[True, False, False], inplace=True)
 
     # devide GEMs by max concordance and outliers
     dct = df.groupby('ct').binding_concordance.max()
@@ -165,6 +171,7 @@ df.fillna({'umi_count_mhc':0, 'delta_umi_mhc':0, 'umi_count_mhc_rel':0,
            'umi_count_TRA':0, 'delta_umi_TRA':0,
            'umi_count_TRB':0, 'delta_umi_TRB':0,
            'cdr3_TRA':'','cdr3_TRB':''}, inplace=True)
+df = calc_binding_concordance(df.copy(), 'ct')
 
 idx_df = pd.read_csv(IDX)
 
