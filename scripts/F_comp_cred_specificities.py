@@ -20,6 +20,12 @@ sns.set_style('ticks', {'axes.edgecolor': '0',
                         'ytick.color': '0'})
 sns.set_context("paper",font_scale=2)
 
+def lst_converter(x):
+    return x.split("|")
+
+def HLA_lst_converter(x):
+    return [hla_lst.split(';') for hla_lst in x.split('|')]
+
 def HLA_cd8_converter(x):
     #define format of datetime
     return x.replace("[","").replace("]","").replace(",", "").replace("'","").split(" ")
@@ -37,18 +43,22 @@ def peptide_hla_converter(x):
 
 def literal_converter(val):
     # replace NaN with '' and perform literal eval on the rest
-    return [] if val == '' else literal_eval(val)
+    try:
+        return [] if val == '' else [v for v in literal_eval(val)]
+    except:
+        return [] if val == '' else [float(v) for v in lst_converter(val)]
+    
 
-converters = {'peptide_HLA_lst': peptide_hla_converter,
-              'umi_count_lst_mhc': literal_eval,
+converters = {'peptide_HLA_lst': lst_converter, #peptide_hla_converter,
+              'umi_count_lst_mhc': literal_converter, #literal_eval,
               'umi_count_lst_cd8': literal_converter,
               'umi_count_lst_TRA': literal_converter,'umi_count_lst_TRB': literal_converter,
-              'cdr3_lst_TRA': cdr3_lst_converter,
-              'cdr3_lst_TRB': cdr3_lst_converter,
-              'HLA_lst_mhc': cdr3_lst_converter,
-              'HLA_pool_cd8':cdr3_lst_converter,
-              'HLA_cd8': HLA_cd8_converter,
-              'HLA_lst_cd8':literal_converter,'sample_id_lst':literal_converter}
+              'cdr3_lst_TRA': lst_converter, #cdr3_lst_converter,
+              'cdr3_lst_TRB': lst_converter, #cdr3_lst_converter,
+              'HLA_lst_mhc': lst_converter, #cdr3_lst_converter,
+              'HLA_pool_cd8': lst_converter, #cdr3_lst_converter,
+              'HLA_cd8': lst_converter, #HLA_cd8_converter,
+              'HLA_lst_cd8': HLA_lst_converter,'sample_id_lst':literal_converter}
 
 def calc_binding_concordance(df, clonotype_fmt):
     gems_per_specificity        = df.groupby([clonotype_fmt,'peptide_HLA']).gem.count().to_dict()
@@ -71,7 +81,6 @@ def get_argparser():
 
 def add_arguments(parser):
     parser.add_argument('--input', required=True, help='Filepath for data')
-    parser.add_argument('--barcodes', required=True, help='Filepath for barcode specifications')
     parser.add_argument('--output', required=True, help='Filepath for output data')
     parser.add_argument('--plots', required=True, help='Filepath for output plots (must contain two placeholders, ie plt_dir/%s/%d.pdf)')
 
@@ -357,15 +366,13 @@ class Evaluate_Clonotype():
 #########################################################################################################
 try:
     INPUT = snakemake.input.data
-    HASHING = snakemake.input.barcodes
     OUTPUT = snakemake.output.data
     PLOT = snakemake.params.plots
 except:
     parser = get_argparser()
     args = parser.parse_args()
-    
+
     INPUT = args.input
-    HASHING = args.barcodes
     OUTPUT = args.output
     PLOT = args.plots
 
@@ -373,24 +380,14 @@ except:
 #                                                 Load                                                 #
 ########################################################################################################
 df = pd.read_csv(INPUT, converters=converters)
-hsh = pd.read_excel(HASHING, sheet_name='HSH')
-
-hsh.fillna('', inplace=True)
-hsh['HLA'] = hsh['HLA_A'] + ', ' + hsh['HLA_B'] + ', ' + hsh['HLA_C']
-hsh['HLA'] = hsh['HLA'].str.split(r',\s?').apply(lambda x: [i for i in x if i!= ''])
-hsh.set_index('sample_id', inplace=True)
 
 ########################################################################################################
 #                                               Prepare                                                #
 ########################################################################################################
-if df.sample_id.nunique() == 0:
-    variables = ['peptide_HLA']
-    imp_vars = ['ct_pep']
-    no_hashing = True
-else:
-    variables = ['sample_id','HLA_cd8','peptide_HLA']
-    imp_vars = ['ct_sample','ct_hla','ct_pep']
-    no_hashing = False
+
+variables = ['peptide_HLA']
+imp_vars = ['ct_pep']
+no_hashing = True
 
 selected_clonotypes = df.groupby('ct').size()
 selected_clonotypes = selected_clonotypes[selected_clonotypes >= 10] # OBS!
@@ -487,64 +484,10 @@ def determine_pep_match(row):
     else:
         return np.nan
 
-def determine_hla_match_by_HLA_conc(row):
-    if notnan(row.HLA_mhc) & (notnan(row.ct_hla) | notnan(row.sample_hla)):
-        smp_hla = row.sample_hla if notnan(row.sample_hla) else []
-        return (row.HLA_mhc == row.ct_hla) | (row.HLA_mhc in smp_hla) #row.sample_hla
-    else:
-        return np.nan
 
-def determine_ct_match_by_HLA_conc(row):
-    pep_hla = row.ct_pep.split(' ')[1] if notnan(row.ct_pep) else np.nan
-    imp_hla = row.ct_hla
-    smp_hla = row.sample_hla
-    if notnan(pep_hla) & (notnan(imp_hla) | notnan(smp_hla)):
-        smp_hla = smp_hla if notnan(smp_hla) else []
-        return (pep_hla == imp_hla) | (pep_hla in smp_hla)
-    else:
-        return np.nan
-    
-def determine_train_label(row):
-    if any((notnan(row.pep_match), notnan(row.hla_match), notnan(row.ct_match))):
-        return (row.pep_match == True) & (row.hla_match == True) & (row.ct_match == True)
-    else:
-        return np.nan
-    
-def determine_test_label(row):
-    if notnan(row.HLA_mhc) & notnan(row.HLA_cd8):
-        return row.HLA_mhc in row.HLA_cd8
-    else:
-        return np.nan
-
-
-try:
-    df['sample_hla'] = df.ct_sample.map(hsh.HLA)
-
-    df['pep_match'] = df.apply(lambda row: determine_pep_match(row), axis=1) #df.ct_pep == df.peptide_HLA
-    df['hla_match'] = df.apply(lambda row: determine_hla_match_by_HLA_conc(row), axis=1)
-    df['ct_match'] = df.apply(lambda row: determine_ct_match_by_HLA_conc(row), axis=1)
-
-    # A clonotype is only credible when we significantly can determine a peptide and an HLA
-    # This might be a harsh criteria for some datasets?!
-    df['valid_ct'] = df.ct.isin(Evaluate_Clonotype.value_bin) & (df.ct_match == True) #(df.ct_match != False)
-
-    # A TP within the trainset requires a significance and concordance of pMHC and sHLA
-    df['train_label'] = df.apply(lambda row: determine_train_label(row), axis=1)
-    df['test_label'] = df.apply(lambda row: determine_test_label(row), axis=1) 
-except AttributeError:
-    df['sample_hla'] = np.nan
-
-    df['pep_match'] = df.apply(lambda row: determine_pep_match(row), axis=1) #df.ct_pep == df.peptide_HLA
-    df['hla_match'] = np.nan
-    df['ct_match'] = np.nan
-
-    # A clonotype is only credible when we significantly can determine a peptide and an HLA
-    # This might be a harsh criteria for some datasets?!
-    df['valid_ct'] = df.ct.isin(Evaluate_Clonotype.value_bin) #& (df.ct_match == True) #(df.ct_match != False)
-
-    # A TP within the trainset requires a significance and concordance of pMHC and sHLA
-    df['train_label'] = df.apply(lambda row: determine_train_label(row), axis=1)
-    df['test_label'] = df.apply(lambda row: determine_test_label(row), axis=1)
+df['HLA_mhc'] = df.peptide_HLA.str.split(' ', expand=True)[1]
+df['pep_match'] = df.apply(lambda row: determine_pep_match(row), axis=1)
+df['valid_ct'] = df.ct.isin(Evaluate_Clonotype.value_bin)
     
 df.to_csv(OUTPUT, index=False)
 
