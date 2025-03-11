@@ -143,7 +143,7 @@ def plot_specificity(title, df, max_gems, save=True):
     ax.set_xticklabels([])
     if save:
         plt.savefig(title, bbox_inches='tight', dpi=100)
-    plt.show()
+    #plt.show()
 
 
 ##########################################################

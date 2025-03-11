@@ -55,6 +55,8 @@ rule grid_search:
         valid_df = rules.eval_clonotypes.output.data
     output:
         grid = RES_DIR + "/eval_clonotypes/grid_search/{ext_thr}.csv"
+    conda:
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/G1_grid_search.py \
             --input {input.valid_df} \
@@ -72,6 +74,8 @@ rule extract_optimal_threshold:
     output:
         plots = expand(PLT_DIR + "/eval_clonotypes/grid_search/grid.{ext}", ext=["pdf", "png"]),
         opt_thr = RES_DIR + "/eval_clonotypes/threshold/opt.csv"
+    conda:
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/G2_extract_optimal_threshold.py \
             --data {input.valid} \
@@ -92,6 +96,8 @@ rule get_filters:
     output:
         lbl = RES_DIR + "/eval_clonotypes/threshold/{filtering_set}.yaml",
         flt = RES_DIR + "/eval_clonotypes/threshold/{filtering_set}.csv"
+    conda:
+        "envs/basic_dependencies.yaml"
     shell:
         "python scripts/H_set_filters.py \
             --data {input.valid} \
